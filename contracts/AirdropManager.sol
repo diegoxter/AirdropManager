@@ -2,8 +2,15 @@
 pragma solidity ^0.8.17;
 
 contract AdminPanel {
-    address payable owner;
-    uint feeInGwei;
+    address payable public owner;
+    uint public feeInGwei;
+    AirManInstance[] public deployedManagers;
+
+    struct AirManInstance {
+        address owner;
+        address instanceAddress;
+        address instanceToken;
+    }
 
     event EtherWithdrawed(uint256 amount);
     event NewAirdropManagerDeployed(address payable managerOwner, address tokenAddress);
@@ -13,8 +20,9 @@ contract AdminPanel {
         _;
     }
 
-    constructor(address payable ownerAddress) {
-        owner = ownerAddress;
+    constructor(uint256 _feeInGwei) {
+        owner = payable(msg.sender);
+        feeInGwei = _feeInGwei;
     }
 
     receive() external payable{
@@ -27,12 +35,24 @@ contract AdminPanel {
         payable(msg.sender).transfer(msg.value);
     }
 
-    function newAirdropManagerInstance(address instanceToken) public payable 
+    function newAirdropManagerInstance(address instanceToken, uint256 initialBalance) public payable 
     returns (AirdropManager) 
     {
         require(msg.value == feeInGwei, 
             'AdminPanel.newAirdropManagerInstance: You need to deposit the minimum fee');
+        require(ERC20(instanceToken).transferFrom(msg.sender, address(this), initialBalance),
+            'AirdropManager.newAirdropCampaign: You need to be able to send tokens to the new Campaign');    
+        
         AirdropManager newInstance = new AirdropManager(payable(msg.sender), instanceToken);
+        ERC20(instanceToken).transfer(address(newInstance), initialBalance);
+
+        deployedManagers.push(
+            AirManInstance({
+                owner: msg.sender,
+                instanceAddress: address(newInstance),
+                instanceToken: instanceToken
+            })
+        );
 
         emit NewAirdropManagerDeployed(payable(msg.sender), instanceToken);
 
@@ -79,9 +99,8 @@ contract AirdropManager {
     function newAirdropCampaign(uint endsIn, uint256 amountForCampaign) public OnlyOwner 
     returns (AirdropCampaign) 
     {
-        require(ERC20(tokenAddress).transferFrom(msg.sender, address(this), amountForCampaign),
-            'AirdropManager.newAirdropCampaign: You need to be able to send tokens to the new Campaign');
-
+        require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
+            'AirdropManager.newAirdropCampaign: Not enought tokens to fund this campaign');
         AirdropCampaign newInstance = 
             new AirdropCampaign(payable(address(this)), block.timestamp + endsIn, tokenAddress);
 
@@ -145,15 +164,6 @@ contract AirdropCampaign {
         require(msg.sender == owner, 'This can only be done by the owner');
         _;
     }
-
-    /* TO DO
-    * manage ERC20 balances 
-    * DONE payable whitelist mechanism (with a switch)
-    * DONE onlyowner whitelist mechanism
-    * DONE receive() add to payable whitelist
-    * give tokens to users
-    *
-    */
 
     constructor(address payable ownerAddress, uint256 endDate, address _tokenAddress) {
         owner = ownerAddress;
@@ -221,7 +231,7 @@ contract AirdropCampaign {
 
     // to do all this
     function receiveTokens() external {
-        require(block.timestamp <= claimableSince, 'AirdropCampaign: Campaign inactive');
+        require(block.timestamp >= claimableSince, 'AirdropCampaign: Campaign inactive');
         require(participantInfo[msg.sender].isBanned == false, 'AirdropCampaign: You are banned');
 
         uint256 _ToSend = ERC20(tokenAddress).balanceOf(address(this)) / 
