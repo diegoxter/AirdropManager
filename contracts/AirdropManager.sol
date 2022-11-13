@@ -127,6 +127,8 @@ contract AirdropManager {
         require(campaignID <= lastCampaignID, 
             'AirdropManager.toggleCampaign: This campaign ID does not exist');
         AirdropCampaign(campaigns[campaignID].campaignAddress).toggleIsActive();
+        campaigns[campaignID].isCampaignActive = 
+            AirdropCampaign(campaigns[campaignID].campaignAddress).isActive();    
     }
 
     function toggleParticipation(uint256 campaignID, address PartAddr) external OnlyOwner {

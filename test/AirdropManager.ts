@@ -60,7 +60,7 @@ describe('AirdropManager', function () {
             AdminPanel, 'NewAirdropManagerDeployed'
         )
 
-        // Connecting to the new instance address
+        // Connecting to the new AirMan instance address
         const newInstanceData = await AdminPanel.deployedManagers(instanceCount)
         const AirManFactory = await ethers.getContractFactory('AirdropManager')
         const AirManInstance = await AirManFactory.attach(
@@ -97,7 +97,35 @@ describe('AirdropManager', function () {
             to.be.revertedWith('This can only be done by the owner')
         }
 
-        // to do create instances with the respective owner
+        await expect(bobAirMan.connect(bob).newAirdropCampaign(120, 500000000000000000n)).
+        to.emit(bobAirMan, 'NewAirdropCampaign')
+        await expect(danaAirMan.connect(dana).newAirdropCampaign(120, 500000000000000000n)).
+        to.emit(danaAirMan, 'NewAirdropCampaign')
+
+        for (let thisInstance of [ bobAirMan, danaAirMan, mariaAirMan ]) {
+            await expect(thisInstance.connect(alice).toggleCampaign(0)).
+            to.be.revertedWith('This can only be done by the owner')
+
+            await expect(thisInstance.connect(random).toggleCampaign(0)).
+            to.be.revertedWith('This can only be done by the owner')
+        }
+
+        // Verify the campaign is active
+        expect((await danaAirMan.campaigns(0))[4]).to.be.true
+
+        await expect(danaAirMan.connect(dana).toggleCampaign(0)).
+        to.not.be.reverted
+        await expect(mariaAirMan.connect(maria).newAirdropCampaign(120, 500000000000000000n)).
+        to.emit(mariaAirMan, 'NewAirdropCampaign')
+        // Verify the campaign is active
+        expect((await mariaAirMan.campaigns(0))[4]).to.be.true
+
+        await expect(mariaAirMan.connect(maria).toggleCampaign(0)).
+        to.not.be.reverted
+
+        // Verify the campaign has been paused
+        expect((await danaAirMan.campaigns(0))[4]).to.be.false
+        expect((await mariaAirMan.campaigns(0))[4]).to.be.false
 
         // Reset the test instance count
         instanceCount = 0
