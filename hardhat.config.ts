@@ -31,7 +31,4 @@ module.exports = {
             runs: 200,
         },
     },
-    paths: {
-        sources: 'Harmonia_DAO_Protocol/',
-    },
 }

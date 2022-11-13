@@ -54,14 +54,17 @@ contract AirdropManager {
     address tokenAddress;
     bool public isTokenSet = false;
     uint256 internal lastCampaignID = 0;
+    Campaign[] public campaigns;
 
-    struct AirdropCampaigns {
+    struct Campaign {
         uint256 campaignID;
-        address campaignAddress;
+        uint256 endDate;
+        AirdropCampaign campaignAddress;
+        uint256 amountToAirdrop;
         bool isCampaignActive;
     }
 
-    // to do events
+    event NewAirdropCampaign(uint256 endsIn, uint256 amountToAirdrop);
 
     modifier OnlyOwner() {
         require(msg.sender == owner, 'This can only be done by the owner');
@@ -73,41 +76,70 @@ contract AirdropManager {
         tokenAddress = _tokenAddress;
     }
     
-    function newAirdropCampaign(address payable instanceOwner, uint endsIn, uint256 amountForCampaign) public OnlyOwner 
+    function newAirdropCampaign(uint endsIn, uint256 amountForCampaign) public OnlyOwner 
     returns (AirdropCampaign) 
     {
-        AirdropCampaign newInstance = new AirdropCampaign(instanceOwner, block.timestamp + endsIn);
-
-        require(ERC20(tokenAddress).transferFrom(msg.sender, address(newInstance), amountForCampaign),
+        require(ERC20(tokenAddress).transferFrom(msg.sender, address(this), amountForCampaign),
             'AirdropManager.newAirdropCampaign: You need to be able to send tokens to the new Campaign');
 
-        // to do send tokens to the new campaign
-        emit NewAirdropCampaign()
+        AirdropCampaign newInstance = 
+            new AirdropCampaign(payable(address(this)), block.timestamp + endsIn, tokenAddress);
+
+        ERC20(tokenAddress).transfer(address(newInstance), amountForCampaign);
+
+        campaigns.push(
+            Campaign({
+                campaignID: lastCampaignID,
+                endDate: block.timestamp + endsIn,
+                campaignAddress: newInstance,
+                amountToAirdrop: amountForCampaign,
+                isCampaignActive: true
+            })
+        );
+
+        lastCampaignID++;
+
+        emit NewAirdropCampaign(endsIn, amountForCampaign);
 
         return newInstance;
     }
 
-    // to do pause/unpause campaigns
+    function toggleCampaign(uint256 campaignID) external OnlyOwner {
+        require(campaignID <= lastCampaignID, 
+            'AirdropManager.toggleCampaign: This campaign ID does not exist');
+        AirdropCampaign(campaigns[campaignID].campaignAddress).toggleIsActive();
+    }
 
+    function toggleParticipation(uint256 campaignID, address PartAddr) external OnlyOwner {
+        require(campaignID <= lastCampaignID, 
+            'AirdropManager.toggleParticipation: This campaign ID does not exist');
+        AirdropCampaign(campaigns[campaignID].campaignAddress).toggleParticipation(PartAddr);
+    }
 }
 
 contract AirdropCampaign {
     address payable owner;
+    address tokenAddress;
     bool public acceptPayableWhitelist;
     uint256 public whitelistFee;
+    uint256 public participantAmount = 0;
     bool public isActive;
     uint256 public claimableSince;
     
     struct Participant {
         address ParticipantAddress;
         bool isBanned;
+        bool claimed;
     }
 
     mapping(address => Participant) public participantInfo;
 
     // to do events
+    event CampaignStatusToggled(bool isActive_);
     event NewParticipant(address newParticipant);
     event EtherWithdrawed(uint256 amount);
+    event TokenClaimed(address participantAddress, uint256 claimed);
+    event UserParticipationToggled(address participantAddress, bool isBanned);
 
     modifier OnlyOwner() {
         require(msg.sender == owner, 'This can only be done by the owner');
@@ -123,9 +155,11 @@ contract AirdropCampaign {
     *
     */
 
-    constructor(address payable ownerAddress, uint256 endDate) {
+    constructor(address payable ownerAddress, uint256 endDate, address _tokenAddress) {
         owner = ownerAddress;
+        tokenAddress = _tokenAddress;
         claimableSince = endDate;
+        isActive = true;
     }
 
     receive() external payable{
@@ -149,12 +183,15 @@ contract AirdropCampaign {
     }
 
     function _addToWhitelist(address PartAddr) internal {
-        require(isActive, 'AirdropCampaign: Campaign inactive');
-        require(claimableSince <= block.timestamp, 'AirdropCampaign: Campaign inactive');
+        require(isActive, 'AirdropCampaign._addToWhitelist: Campaign inactive');
+        require(claimableSince <= block.timestamp, 'AirdropCampaign._addToWhitelist: Campaign inactive');
         require(participantInfo[PartAddr].ParticipantAddress != PartAddr, 
             'AirdropCampaign._addToWhitelist: Participant already exists');
         participantInfo[PartAddr].ParticipantAddress = PartAddr;
         participantInfo[PartAddr].isBanned = false;
+        participantInfo[PartAddr].claimed = false;
+
+        participantAmount++;
 
         emit NewParticipant(PartAddr);
     }
@@ -168,18 +205,31 @@ contract AirdropCampaign {
         } else {
             participantInfo[PartAddr].isBanned = true;
         }
+
+        emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].isBanned);
+    }
+
+    function toggleIsActive() external OnlyOwner {
+        if (isActive == true) {
+            isActive = false;
+        } else {
+            isActive = true;
+        }
+
+        emit CampaignStatusToggled(isActive);
     }
 
     // to do all this
-    bool public testBool;
     function receiveTokens() external {
         require(block.timestamp <= claimableSince, 'AirdropCampaign: Campaign inactive');
-        if (testBool == true) {
-            testBool = false;
-        } else {
-            testBool = true;
-        }
+        require(participantInfo[msg.sender].isBanned == false, 'AirdropCampaign: You are banned');
 
+        uint256 _ToSend = ERC20(tokenAddress).balanceOf(address(this)) / 
+            participantAmount;
+        participantInfo[msg.sender].claimed = true;
+        ERC20(tokenAddress).transfer(msg.sender, _ToSend);
+
+        emit TokenClaimed(msg.sender, _ToSend);
     }
 
     function withdrawEther() external OnlyOwner {
