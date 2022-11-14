@@ -54,9 +54,13 @@ describe('AirdropManager', function () {
         to.equal(1000000000000000000n)
 
         // owner creates a new AirManInstance
-        await expect(AdminPanel.connect(owner).newAirdropManagerInstance(token.address, 1000000000000000000n, {
+        await expect(AdminPanel.connect(owner).newAirdropManagerInstance(
+            token.address, 
+            1000000000000000000n, 
+            {
             value: TestValue,
-        })).to.emit(
+            })
+        ).to.emit(
             AdminPanel, 'NewAirdropManagerDeployed'
         )
 
@@ -73,7 +77,7 @@ describe('AirdropManager', function () {
 
         return AirManInstance
     }
-
+/*
     it('creates new Airdrop Manager instances, respecting ownership', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
 
@@ -90,16 +94,16 @@ describe('AirdropManager', function () {
         instanceCount += 1
 
         for (let thisInstance of [ bobAirMan, danaAirMan, mariaAirMan ]) {
-            await expect(thisInstance.connect(alice).newAirdropCampaign(120, 500000000000000000n)).
+            await expect(thisInstance.connect(alice).newAirdropCampaign(120, 500000000000000000n, true, 100000000000000000n)).
             to.be.revertedWith('This can only be done by the owner')
 
-            await expect(thisInstance.connect(random).newAirdropCampaign(120, 500000000000000000n)).
+            await expect(thisInstance.connect(random).newAirdropCampaign(120, 500000000000000000n, true, 100000000000000000n)).
             to.be.revertedWith('This can only be done by the owner')
         }
 
-        await expect(bobAirMan.connect(bob).newAirdropCampaign(120, 500000000000000000n)).
+        await expect(bobAirMan.connect(bob).newAirdropCampaign(120, 500000000000000000n, true, 100000000000000000n)).
         to.emit(bobAirMan, 'NewAirdropCampaign')
-        await expect(danaAirMan.connect(dana).newAirdropCampaign(120, 500000000000000000n)).
+        await expect(danaAirMan.connect(dana).newAirdropCampaign(120, 500000000000000000n, true, 100000000000000000n)).
         to.emit(danaAirMan, 'NewAirdropCampaign')
 
         for (let thisInstance of [ bobAirMan, danaAirMan, mariaAirMan ]) {
@@ -115,7 +119,7 @@ describe('AirdropManager', function () {
 
         await expect(danaAirMan.connect(dana).toggleCampaign(0)).
         to.not.be.reverted
-        await expect(mariaAirMan.connect(maria).newAirdropCampaign(120, 500000000000000000n)).
+        await expect(mariaAirMan.connect(maria).newAirdropCampaign(120, 500000000000000000n, false, 0)).
         to.emit(mariaAirMan, 'NewAirdropCampaign')
         // Verify the campaign is active
         expect((await mariaAirMan.campaigns(0))[4]).to.be.true
@@ -127,11 +131,68 @@ describe('AirdropManager', function () {
         expect((await danaAirMan.campaigns(0))[4]).to.be.false
         expect((await mariaAirMan.campaigns(0))[4]).to.be.false
 
+        // to do verify the hasFixedAmount and amountForEachUser
+        expect((await bobAirMan.campaigns(0))[5]).to.be.true
+        expect((await danaAirMan.campaigns(0))[5]).to.be.true
+        expect((await mariaAirMan.campaigns(0))[5]).to.be.false
+        expect((await bobAirMan.campaigns(0))[6]).to.equal(100000000000000000n)
+        expect((await danaAirMan.campaigns(0))[6]).to.equal(100000000000000000n)
+        expect((await mariaAirMan.campaigns(0))[6]).to.equal(0)
+
         // Reset the test instance count
         instanceCount = 0
     })
+*/
+    it('respects whitelist, user can receive their tokens as expected', async function () {
+        const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
 
-    it('', async function () {
+        const { AdminPanel } = await deployAMFixture()
+        const bobToken = await deployMockToken()
+        const genericToken = await deployMockToken()
+
+        // Updating the instanceCount after each deploy
+        const bobAirMan = await deployNewAirmanInstance(bob, bobToken, AdminPanel)
+        instanceCount += 1
+        const danaAirMan = await deployNewAirmanInstance(dana, genericToken, AdminPanel)
+        instanceCount += 1
+
+        // create new test campaigns
+        await expect(bobAirMan.connect(bob).newAirdropCampaign(15, 500000000000000000n, true, 100000000000000000n)).
+        to.emit(bobAirMan, 'NewAirdropCampaign')
+        await expect(danaAirMan.connect(dana).newAirdropCampaign(15, 500000000000000000n, false, 0)).
+        to.emit(danaAirMan, 'NewAirdropCampaign')
+
+        // add the instance of the new campaign
+        const bobAirManData = await bobAirMan.campaigns(0)
+        const BobAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
+        const bobAirdropInstance = await BobAirdropFactory.attach(
+            `${bobAirManData[2]}`
+        )
+
+        const danaAirManData = await danaAirMan.campaigns(0)
+        const DanaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
+        const danaAirdropInstance = await DanaAirdropFactory.attach(
+            `${danaAirManData[2]}`
+        )
+
+        // add users to Dana's campaign
+        await expect(danaAirMan.connect(dana).batchAddToWhitelist(0, [alice.address, bob.address, maria.address, random.address])).
+        to.emit(danaAirdropInstance, 'NewParticipant')
+        // verify these people got added
+        for (let thisUser of [ alice, bob, maria, random ]) {
+           expect((await danaAirdropInstance.participantInfo(thisUser.address))[1]).to.be.false
+        }
+        // Let's block Bob
+        await expect(danaAirMan.connect(dana).toggleParticipation(0, bob.address)).
+        to.emit(danaAirdropInstance, 'UserParticipationToggled')
+        expect((await danaAirdropInstance.participantInfo(bob.address))[1]).to.be.true
+
+        console.log(await danaAirdropInstance.claimableSince())
+
+        // to do verify the retrieveTokens function for each of these instances
+
+        // Reset the test instance count
+        instanceCount = 0
     })
 
     it('', async function () {
