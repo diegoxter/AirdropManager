@@ -118,6 +118,8 @@ contract AirdropManager {
                 amountForEachUser: amountForEveryUser
             })
         );
+        
+        AirdropCampaign(campaigns[lastCampaignID].campaignAddress).updateTokenBalance();
 
         lastCampaignID++;
 
@@ -161,6 +163,7 @@ contract AirdropCampaign {
     uint256 public participantAmount = 0;
     bool public fixedAmount;
     uint256 public amountForEachUser;
+    uint256 public tokenBalance;
     bool public isActive;
     uint256 public claimableSince;
     
@@ -228,6 +231,10 @@ contract AirdropCampaign {
         }
     }
 
+    function updateTokenBalance() external OnlyOwner{
+        tokenBalance = ERC20(tokenAddress).balanceOf(address(this));
+    }
+
     function _addToWhitelist(address PartAddr) internal {
         require(isActive, 'AirdropCampaign._addToWhitelist: Campaign inactive');
         require(block.timestamp <= claimableSince, 'AirdropCampaign._addToWhitelist: Campaign time ended');
@@ -243,21 +250,24 @@ contract AirdropCampaign {
     }
 
     function toggleParticipation(address PartAddr) external OnlyOwner {
+        require(block.timestamp <= claimableSince, 'AirdropCampaign.toggleIsActive: Can not modify users, time is up');
         require(participantInfo[PartAddr].ParticipantAddress == PartAddr, 
             "AirdropCampaign.toggleParticipation: Participant doesn't exists");
 
         if (participantInfo[PartAddr].canReceive == true) {
             participantInfo[PartAddr].canReceive = false;
-            participantAmount++;
+            participantAmount--;
         } else {
             participantInfo[PartAddr].canReceive = true;
-            participantAmount--;
+            participantAmount++;
         }
 
         emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].canReceive);
     }
 
     function toggleIsActive() external OnlyOwner {
+        require(block.timestamp <= claimableSince, 'AirdropCampaign.toggleIsActive: Can not modify status, time is up');
+
         if (isActive == true) {
             isActive = false;
         } else {
@@ -288,7 +298,7 @@ contract AirdropCampaign {
         if (fixedAmount) {
             _ToSend = amountForEachUser;
         } else {
-            _ToSend = ERC20(tokenAddress).balanceOf(address(this)) / participantAmount;
+            _ToSend = tokenBalance / participantAmount;
         }
 
         participantInfo[msg.sender].claimed = true;
