@@ -1,7 +1,7 @@
-const { expect } = require('chai')
-const { BigNumber } = require('ethers')
-const { artifacts, contract, ethers, network } = require('hardhat')
-require('@nomicfoundation/hardhat-chai-matchers')
+import { expect } from 'chai'
+import { BigNumber } from 'ethers'
+import { artifacts, ethers, network } from 'hardhat'
+import '@nomicfoundation/hardhat-chai-matchers'
 
 describe('AirdropManager', function () {
 
