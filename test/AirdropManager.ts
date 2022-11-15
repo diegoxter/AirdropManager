@@ -146,7 +146,6 @@ describe('AirdropManager', function () {
         // Reset the test instance count
         instanceCount = 0
     })
-
     it('respects whitelist, users can receive their tokens as expected if no hasFixedAmount', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
         let testTokenValue = 500000000000000000n
@@ -228,12 +227,12 @@ describe('AirdropManager', function () {
         to.be.revertedWith('AirdropCampaign: You already claimed your tokens')
 
     })
-//to do this
-    it('users can receive their tokens as expected if hasFixedAmount', async function () {
+
+    it('has paid whitelist, users can receive their tokens as expected if hasFixedAmount', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
         let testTokenValue = 500000000000000000n
         let testAirdropValue = 100000000000000000n
-        const { AdminPanel } = await deployAMFixture()
+        const { AdminPanel, TestValue } = await deployAMFixture()
         const bobToken = await deployMockToken()
         
         const bobAirMan = await deployNewAirmanInstance(bob, bobToken, AdminPanel)
@@ -246,11 +245,94 @@ describe('AirdropManager', function () {
         const bobAirManData = await bobAirMan.campaigns(0)
         const BobAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const bobAirdropInstance = await BobAirdropFactory.attach(`${bobAirManData[2]}`)
+        expect(await bobToken.balanceOf(bobAirdropInstance.address)).to.equal(testTokenValue)
+        
+        // Checking the status
+        expect(await bobAirdropInstance.acceptPayableWhitelist()).to.be.false
+        // Let's turn on payableWhitelist 
+        await expect(bobAirMan.connect(bob).togglePayableWhitelist(0)).
+        to.emit(bobAirdropInstance, 'CampaignStatusToggled')
+        // Checking the status
+        expect(await bobAirdropInstance.acceptPayableWhitelist()).to.be.true
+        // Let's set the maxParticipantAmount
+        await expect(bobAirMan.connect(bob).updateMaxParticipantAmount(0, 5)).
+        to.emit(bobAirdropInstance, 'NewMaxParticipantAmount')
 
-        expect(await bobToken.balanceOf(bobAirdropInstance.address)).to.equal(
-            testTokenValue
-        )
+        // setting the fee
+        await expect(bobAirMan.connect(bob).updateWhitelistFee(0, TestValue)).
+        to.emit(bobAirdropInstance, 'NewWhitelistFee')
 
+        for (let thisUser of [ alice, bob, dana, maria, random ]) {
+            // Verify they can't reclaim, add them, verify they got enabled
+            expect((await bobAirdropInstance.participantInfo(thisUser.address))[1]).to.be.false
+            await expect(bobAirdropInstance.connect(thisUser).addToPayableWhitelist({
+                value: TestValue,
+                })).
+            to.emit(bobAirdropInstance, 'NewParticipant')
+            expect((await bobAirdropInstance.participantInfo(thisUser.address))[1]).to.be.true
+        }
+
+        // Not claimable yet
+        await expect(bobAirdropInstance.connect(random).receiveTokens()).
+        to.be.revertedWith('AirdropCampaign: Airdrop still not claimable')
+
+        // Time related code
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        await delay(13500)
+
+        // lets claim the tokens
+        for (let thisUser of [ alice, dana, maria, random ]) {
+            let thisUserOGTokenBalance = await bobToken.balanceOf(thisUser.address)
+
+            await expect(bobAirdropInstance.connect(thisUser).receiveTokens()).
+            to.emit(bobAirdropInstance, 'TokenClaimed')
+            
+            expect(await bobToken.balanceOf(thisUser.address)).to.equal(
+                BigInt(thisUserOGTokenBalance) + (BigInt(await bobAirdropInstance.amountForEachUser()))
+            )
+        }
+    })
+
+    it('rejects users after hasFixedAmount user limit is reached', async function () {
+        const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
+        let testTokenValue = 500000000000000000n
+        let testAirdropValue = 150000000000000000n
+        const { AdminPanel, TestValue } = await deployAMFixture()
+        const bobToken = await deployMockToken()
+        
+        const bobAirMan = await deployNewAirmanInstance(bob, bobToken, AdminPanel)
+
+        // create new test campaigns
+        await expect(bobAirMan.connect(bob).newAirdropCampaign(15, testTokenValue, true, testAirdropValue)).
+        to.emit(bobAirMan, 'NewAirdropCampaign')
+
+        // add the instance of the new campaign
+        const bobAirManData = await bobAirMan.campaigns(0)
+        const BobAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
+        const bobAirdropInstance = await BobAirdropFactory.attach(`${bobAirManData[2]}`)
+        expect(await bobToken.balanceOf(bobAirdropInstance.address)).to.equal(testTokenValue)
+
+        // Let's turn on payableWhitelist
+        await expect(bobAirMan.connect(bob).togglePayableWhitelist(0)).
+        to.emit(bobAirdropInstance, 'CampaignStatusToggled')
+        // setting the fee and the max amount of participants
+        await expect(bobAirMan.connect(bob).updateWhitelistFee(0, 0)).
+        to.emit(bobAirdropInstance, 'NewWhitelistFee')
+        await expect(bobAirMan.connect(bob).updateMaxParticipantAmount(0, 3)).
+        to.emit(bobAirdropInstance, 'NewMaxParticipantAmount')
+
+        for (let thisUser of [ dana, maria, random ]) {
+            // Verify they can't reclaim, add them, verify they got enabled
+            await expect(bobAirdropInstance.connect(thisUser).addToPayableWhitelist({
+                value: 0,
+                })).
+            to.emit(bobAirdropInstance, 'NewParticipant')
+        }
+
+        await expect(bobAirdropInstance.connect(alice).addToPayableWhitelist({
+            value: 0,
+            })).
+        to.be.revertedWith('AirdropCampaign._addToWhitelist.hasFixedAmount: Can not join, whitelist is full')
     })
 
 })
