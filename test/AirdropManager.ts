@@ -165,9 +165,7 @@ describe('AirdropManager', function () {
         // add the instance of the new campaign
         const bobAirManData = await bobAirMan.campaigns(0)
         const BobAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
-        const bobAirdropInstance = await BobAirdropFactory.attach(
-            `${bobAirManData[2]}`
-        )
+        const bobAirdropInstance = await BobAirdropFactory.attach(`${bobAirManData[2]}`)
 
         const danaAirManData = await danaAirMan.campaigns(0)
         const DanaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
@@ -176,20 +174,44 @@ describe('AirdropManager', function () {
         )
 
         // add users to Dana's campaign
-        await expect(danaAirMan.connect(dana).batchAddToWhitelist(0, [alice.address, bob.address, maria.address, random.address])).
+        await expect(danaAirMan.connect(dana).batchAddToWhitelist(0, [alice.address, bob.address, random.address])).
         to.emit(danaAirdropInstance, 'NewParticipant')
         // verify these people got added
-        for (let thisUser of [ alice, bob, maria, random ]) {
-           expect((await danaAirdropInstance.participantInfo(thisUser.address))[1]).to.be.false
+        for (let thisUser of [ alice, bob, random ]) {
+           expect((await danaAirdropInstance.participantInfo(thisUser.address))[1]).to.be.true
         }
         // Let's block Bob
         await expect(danaAirMan.connect(dana).toggleParticipation(0, bob.address)).
         to.emit(danaAirdropInstance, 'UserParticipationToggled')
-        expect((await danaAirdropInstance.participantInfo(bob.address))[1]).to.be.true
+        expect((await danaAirdropInstance.participantInfo(bob.address))[1]).to.be.false
 
-        console.log(await danaAirdropInstance.claimableSince())
+        // Not claimable yet
+        await expect(danaAirdropInstance.connect(random).receiveTokens()).
+        to.be.revertedWith('AirdropCampaign: Airdrop still not claimable')
 
-        // to do verify the retrieveTokens function for each of these instances
+        // Time related code
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        await delay(12500)
+
+        // Dana is not on whitelist / bob is blocked 
+        await expect(danaAirdropInstance.connect(dana).receiveTokens()).
+        to.be.revertedWith('AirdropCampaign: You can not claim this airdrop')
+        await expect(danaAirdropInstance.connect(bob).receiveTokens()).
+        to.be.revertedWith('AirdropCampaign: You can not claim this airdrop')
+        // Claim alice tokens / claim random account tokens and get blocked by the contract 
+        
+        
+        await expect(danaAirdropInstance.connect(random).receiveTokens()).
+        to.emit(danaAirdropInstance, 'TokenClaimed')
+        await expect(danaAirdropInstance.connect(alice).receiveTokens()).
+        to.emit(danaAirdropInstance, 'TokenClaimed')
+        // check they received their tokens
+        expect(await genericToken.balanceOf(random.address)).to.equal(
+            10000000000000000000n
+        )
+
+        await expect(danaAirdropInstance.connect(random).receiveTokens()).
+        to.be.revertedWith('AirdropCampaign: You already claimed your tokens')
 
         // Reset the test instance count
         instanceCount = 0

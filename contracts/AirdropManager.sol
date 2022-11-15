@@ -166,7 +166,7 @@ contract AirdropCampaign {
     
     struct Participant {
         address ParticipantAddress;
-        bool isBanned;
+        bool canReceive;
         bool claimed;
     }
 
@@ -234,7 +234,7 @@ contract AirdropCampaign {
         require(participantInfo[PartAddr].ParticipantAddress != PartAddr, 
             'AirdropCampaign._addToWhitelist: Participant already exists');
         participantInfo[PartAddr].ParticipantAddress = PartAddr;
-        participantInfo[PartAddr].isBanned = false;
+        participantInfo[PartAddr].canReceive = true;
         participantInfo[PartAddr].claimed = false;
 
         participantAmount++;
@@ -246,15 +246,15 @@ contract AirdropCampaign {
         require(participantInfo[PartAddr].ParticipantAddress == PartAddr, 
             "AirdropCampaign.toggleParticipation: Participant doesn't exists");
 
-        if (participantInfo[PartAddr].isBanned == true) {
-            participantInfo[PartAddr].isBanned = false;
+        if (participantInfo[PartAddr].canReceive == true) {
+            participantInfo[PartAddr].canReceive = false;
             participantAmount++;
         } else {
-            participantInfo[PartAddr].isBanned = true;
+            participantInfo[PartAddr].canReceive = true;
             participantAmount--;
         }
 
-        emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].isBanned);
+        emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].canReceive);
     }
 
     function toggleIsActive() external OnlyOwner {
@@ -280,7 +280,7 @@ contract AirdropCampaign {
     // to do all this
     function receiveTokens() external {
         require(block.timestamp >= claimableSince, 'AirdropCampaign: Airdrop still not claimable');
-        require(participantInfo[msg.sender].isBanned == false, 'AirdropCampaign: You are banned');
+        require(participantInfo[msg.sender].canReceive == true, 'AirdropCampaign: You can not claim this airdrop');
         require(participantInfo[msg.sender].claimed == false, 
             'AirdropCampaign: You already claimed your tokens');
 
