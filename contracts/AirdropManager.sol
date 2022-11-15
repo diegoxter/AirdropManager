@@ -84,6 +84,7 @@ contract AirdropManager {
     }
 
     event NewAirdropCampaign(uint256 endsIn, uint256 amountToAirdrop);
+    event EtherWithdrawed(uint256 amount);
 
     modifier OnlyOwner() {
         require(msg.sender == owner, 'This can only be done by the owner');

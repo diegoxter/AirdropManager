@@ -1,6 +1,7 @@
 /** @type import('hardhat/config').HardhatUserConfig */
-require('dotenv').config()
-require('@nomiclabs/hardhat-ethers')
+import * as dotenv from 'dotenv'
+dotenv.config()
+import '@nomiclabs/hardhat-ethers'
 
 const MNEMONIC = process.env.MNEMONIC
 
@@ -12,9 +13,9 @@ module.exports = {
     networks: {
         fantom_testnet: {
             url: `https://rpc.testnet.fantom.network/`,
-            /*accounts: {
+            accounts: {
                 mnemonic: MNEMONIC,
-            },*/
+            },
             chainId: 4002,
         },
         matic_testnet: {
@@ -23,6 +24,13 @@ module.exports = {
                 mnemonic: MNEMONIC,
             },*/
             chainId: 80001,
+        },
+        nova_network: {
+            url: `https://dev.rpc.novanetwork.io/`,
+            accounts: {
+                mnemonic: MNEMONIC,
+            },
+            chainId: 87,
         },
     },
     settings: {

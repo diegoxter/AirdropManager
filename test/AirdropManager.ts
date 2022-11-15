@@ -52,6 +52,10 @@ describe('AirdropManager', function () {
 
         // owner needs to approve some tokens to create a new AirManInstance
         await token.connect(owner).approve(AdminPanel.address, 1000000000000000000n)
+        
+        // Time related code
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        await delay(3500)
         expect(await token.allowance(owner.address, AdminPanel.address)).
         to.equal(1000000000000000000n)
 
@@ -146,6 +150,7 @@ describe('AirdropManager', function () {
         // Reset the test instance count
         instanceCount = 0
     })
+
     it('respects whitelist, users can receive their tokens as expected if no hasFixedAmount', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
         let testTokenValue = 500000000000000000n
