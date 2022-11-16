@@ -26,13 +26,11 @@ contract AdminPanel {
     }
 
     receive() external payable{
-        // to do fix this
-        payable(msg.sender).transfer(msg.value);
+        revert();
     }
 
     fallback() external payable{
-        // to do fix this
-        payable(msg.sender).transfer(msg.value);
+        revert();
     }
 
     function newAirdropManagerInstance(address instanceToken, uint256 initialBalance) public payable 
@@ -85,6 +83,7 @@ contract AirdropManager {
 
     event NewAirdropCampaign(uint256 endsIn, uint256 amountToAirdrop);
     event EtherWithdrawed(uint256 amount);
+    event WithdrawedTokens(uint256 Amount);
 
     modifier OnlyOwner() {
         require(msg.sender == owner, 'This can only be done by the owner');
@@ -172,6 +171,10 @@ contract AirdropManager {
 
         emit EtherWithdrawed(amountToSend);
     }
+
+    function withdrawTokens() external OnlyOwner {
+            // to do
+    }
 }
 
 contract AirdropCampaign {
@@ -202,6 +205,7 @@ contract AirdropCampaign {
     event UserParticipationToggled(address participantAddress, bool isBanned);
     event NewWhitelistFee(uint256 newFeeInGwei);
     event NewMaxParticipantAmount(uint256 newFeeInGwei);
+    event WithdrawedTokens(uint256 Amount);
 
     modifier OnlyOwner() {
         require(msg.sender == owner, 'This can only be done by the owner');
@@ -231,7 +235,7 @@ contract AirdropCampaign {
     }
 
     fallback() external payable{
-        payable(msg.sender).transfer(msg.value);
+        revert();
     }
 
     // Admin functions
@@ -333,6 +337,11 @@ contract AirdropCampaign {
         ERC20(tokenAddress).transfer(msg.sender, _ToSend);
 
         emit TokenClaimed(msg.sender, _ToSend);
+    }
+
+    
+    function withdrawTokens() external OnlyOwner {
+            // to do
     }
 
     function _addToWhitelist(address PartAddr) internal { // ** related
