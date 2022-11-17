@@ -38,11 +38,10 @@ contract AdminPanel {
         require(msg.value == feeInGwei, 
             'AdminPanel.newAirdropManagerInstance: You need to deposit the minimum fee');
         require(ERC20(instanceToken).allowance(msg.sender, address(this)) == initialBalance,
-            'AirdropManager.newAirdropManagerInstance: You need to be able to send tokens to the new Campaign');    
+            'AirdropManager.newAirdropManagerInstance: You need to send tokens to the new Campaign');    
         
         AirdropManager newInstance = new AirdropManager(payable(msg.sender), instanceToken);
-        require(ERC20(instanceToken).transferFrom(msg.sender, address(newInstance), initialBalance),
-            'AirdropManager.newAirdropManagerInstance: You need to be able to send tokens to the new Campaign');    
+        ERC20(instanceToken).transferFrom(msg.sender, address(newInstance), initialBalance);  
         
         deployedManagers.push(
             AirManInstance({
@@ -172,8 +171,17 @@ contract AirdropManager {
         emit EtherWithdrawed(amountToSend);
     }
 
-    function withdrawTokens() external OnlyOwner {
-            // to do
+    function withdrawManagerTokens() external OnlyOwner {
+        uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+        ERC20(tokenAddress).transfer(owner, toSend);
+
+        emit WithdrawedTokens(toSend);
+    }
+
+    function withdrawCampaignTokens(uint256 campaignID) external OnlyOwner {
+        require(campaignID <= lastCampaignID, 
+            'AirdropManager.toggleParticipation: This campaign ID does not exist');
+        AirdropCampaign(campaigns[campaignID].campaignAddress).withdrawTokens();
     }
 }
 
@@ -189,6 +197,7 @@ contract AirdropCampaign {
     uint256 public maxParticipantAmount; // helps when fixedAmount is true
     bool public fixedAmount;
     uint256 public amountForEachUser;
+    uint256 public ownerTokenWithdrawDate; // The date the owner can withdraw the tokens
     
     struct Participant {
         address ParticipantAddress;
@@ -198,7 +207,7 @@ contract AirdropCampaign {
 
     mapping(address => Participant) public participantInfo;
 
-    event CampaignStatusToggled(string optionToggled, bool isActive_);
+    event CampaignStatusToggled(bytes18 optionToggled, bool isActive_);
     event NewParticipant(address newParticipant);
     event EtherWithdrawed(uint256 amount);
     event TokenClaimed(address participantAddress, uint256 claimed);
@@ -223,6 +232,7 @@ contract AirdropCampaign {
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
         claimableSince = endDate;
+        ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
         isActive = true;
         fixedAmount = hasFixedAmount;
 
@@ -239,10 +249,6 @@ contract AirdropCampaign {
     }
 
     // Admin functions
-    function addToWhitelist(address PartAddr) external OnlyOwner{
-        _addToWhitelist(PartAddr);
-    }
-
     function batchAddToWhitelist(address[] memory PartAddr) external OnlyOwner{
         for (uint256 id = 0; id < PartAddr.length; ++id) {
             _addToWhitelist(PartAddr[id]);
@@ -290,7 +296,7 @@ contract AirdropCampaign {
             isActive = true;
         }
 
-        emit CampaignStatusToggled('Is Campaign active?', isActive);
+        emit CampaignStatusToggled('Is active?', isActive);
     }
 
     function togglePayableWhitelist() external OnlyOwner {
@@ -300,7 +306,16 @@ contract AirdropCampaign {
             acceptPayableWhitelist = true;
         }
 
-        emit CampaignStatusToggled('Does Campaign accepts Payable Whitelist?', acceptPayableWhitelist);
+        emit CampaignStatusToggled('Payable Whitelist?', acceptPayableWhitelist);
+    }
+
+    function withdrawTokens() external OnlyOwner {
+        require(block.timestamp >= ownerTokenWithdrawDate, 
+            'AirdropCampaign.withdrawTokens: Tokens still not claimable');
+        uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+        ERC20(tokenAddress).transfer(owner, toSend);
+
+        emit WithdrawedTokens(toSend);
     }
 
     function withdrawEther() external OnlyOwner {
@@ -337,11 +352,6 @@ contract AirdropCampaign {
         ERC20(tokenAddress).transfer(msg.sender, _ToSend);
 
         emit TokenClaimed(msg.sender, _ToSend);
-    }
-
-    
-    function withdrawTokens() external OnlyOwner {
-            // to do
     }
 
     function _addToWhitelist(address PartAddr) internal { // ** related

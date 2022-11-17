@@ -4,6 +4,8 @@ import { artifacts, ethers, network } from 'hardhat'
 import '@nomicfoundation/hardhat-chai-matchers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
+
+// to do refactor all this
 describe('AirdropManager', function () {
 
     const totalToken = 10000000000000000000n
@@ -338,6 +340,11 @@ describe('AirdropManager', function () {
             value: 0,
             })).
         to.be.revertedWith('AirdropCampaign._addToWhitelist.hasFixedAmount: Can not join, whitelist is full')
+    })
+
+    it('allows to withdraw the AirMan, individual AirCampaigns tokens', async function () {
+
+        // to do
     })
 
 })
