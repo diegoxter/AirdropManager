@@ -1,6 +1,6 @@
 import { expect } from 'chai'
-import { BigNumber, Contract, Signer } from 'ethers'
-import { artifacts, ethers, network } from 'hardhat'
+import { Contract } from 'ethers'
+import { ethers } from 'hardhat'
 import '@nomicfoundation/hardhat-chai-matchers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 

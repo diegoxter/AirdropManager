@@ -1,11 +1,14 @@
 /** @type import('hardhat/config').HardhatUserConfig */
-import * as dotenv from 'dotenv'
-dotenv.config()
 import '@nomiclabs/hardhat-ethers'
+import * as dotenv from 'dotenv'
+import { task } from "hardhat/config"
+import './scripts/networkTest'
+
+dotenv.config()
 
 const MNEMONIC = process.env.MNEMONIC
 
-module.exports = {
+export default {
     solidity: '0.8.17',
     mocha: {
         timeout: 100000000,
