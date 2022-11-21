@@ -16,7 +16,7 @@ contract AdminPanel {
     event NewAirdropManagerDeployed(address payable managerOwner, address tokenAddress, address deployedManager);
 
     modifier OnlyOwner() {
-        require(msg.sender == owner, 'This can only be done by the owner');
+        require(msg.sender == owner);
         _;
     }
 
@@ -36,16 +36,24 @@ contract AdminPanel {
     function newAirdropManagerInstance(address instanceToken, uint256 initialBalance) public payable 
     {
         require(msg.value == feeInGwei, 
-            'AdminPanel.newAirdropManagerInstance: You need to deposit the minimum fee');
+            'AdminPanel.newAirdropManagerInstance: Minimum fee not sent');
         require(ERC20(instanceToken).allowance(msg.sender, address(this)) >= initialBalance,
-            'AirdropManager.newAirdropManagerInstance: You need to send tokens to the new Campaign');    
+            'AirdropManager.newAirdropManagerInstance: No tokens sent to new Campaign');    
         
-        AirdropManager newInstance = new AirdropManager(payable(msg.sender), instanceToken);
-        ERC20(instanceToken).transferFrom(msg.sender, address(newInstance), initialBalance);  
+        _deployNewAirMan(instanceToken, initialBalance, payable(msg.sender));
+    }
+
+    function freeAirManInstace(address instanceToken, uint256 initialBalance, address payable _owner) external OnlyOwner {
+        _deployNewAirMan(instanceToken, initialBalance, _owner);
+    }
+
+    function _deployNewAirMan(address instanceToken, uint256 initialBalance, address payable newOwner) internal {
+        AirdropManager newInstance = new AirdropManager(newOwner, instanceToken);
+        ERC20(instanceToken).transferFrom(newOwner, address(newInstance), initialBalance);  
         
         deployedManagers.push(
             AirManInstance({
-                owner: msg.sender,
+                owner: newOwner,
                 instanceAddress: address(newInstance),
                 instanceToken: instanceToken
             })
@@ -85,7 +93,7 @@ contract AirdropManager {
     event WithdrawedTokens(uint256 Amount);
 
     modifier OnlyOwner() {
-        require(msg.sender == owner, 'This can only be done by the owner');
+        require(msg.sender == owner);
         _;
     }
 
@@ -98,7 +106,7 @@ contract AirdropManager {
     returns (AirdropCampaign) 
     {
         require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
-            'AirdropManager.newAirdropCampaign: Not enough tokens to fund this campaign');
+            'AirMan.newAirdropCampaign: Not enough tokens to fund campaign');
         require(amountForCampaign > amountForEveryUser);
         AirdropCampaign newInstance = 
             new AirdropCampaign(payable(address(this)), block.timestamp + endsIn, tokenAddress, hasFixedAmount, amountForEveryUser);
@@ -128,13 +136,13 @@ contract AirdropManager {
 
     function batchAddToWhitelist(uint256 campaignID, address[] memory PartAddr) external OnlyOwner{
         require(campaignID <= lastCampaignID, 
-            'AirdropManager.toggleCampaign: This campaign ID does not exist');
+            'AirMan.toggleCampaign: This ID does not exist');
         AirdropCampaign(campaigns[campaignID].campaignAddress).batchAddToWhitelist(PartAddr);
     }
 
     function toggleCampaignOption(uint256 campaignID, uint8 option) external OnlyOwner {
         require(option >=0 && option <= 1, 
-            'AirdropManager.toggleCampaignOption: You must choose either option 0 or option 1');
+            'AirMan.toggleCampaignOption: Only accepts 0 or 1');
 
         AirdropCampaign(campaigns[campaignID].campaignAddress).toggleOption(option);
 
@@ -146,10 +154,10 @@ contract AirdropManager {
 
     function updateCampaignValue(uint256 campaignID, uint8 option, uint256 newValue) external OnlyOwner {
         require(campaignID <= lastCampaignID, 
-            'AirdropManager.toggleCampaign: This campaign ID does not exist');
+            'AirMan.toggleCampaign: This ID does not exist');
 
         require(option >=0 && option <= 3, 
-            'AirdropManager.toggleCampaignOption: You must choose either option 0 or option 1');
+            'AirMan.toggleCampaignOption: Only accepts 0 or 1');
 
             AirdropCampaign(campaigns[campaignID].campaignAddress).updateValue(option, newValue);
 
@@ -157,29 +165,42 @@ contract AirdropManager {
 
     function toggleParticipation(uint256 campaignID, address PartAddr) external OnlyOwner {
         require(campaignID <= lastCampaignID, 
-            'AirdropManager.toggleParticipation: This campaign ID does not exist');
+            'AirMan.toggleParticipation: This ID does not exist');
         AirdropCampaign(campaigns[campaignID].campaignAddress).toggleParticipation(PartAddr);
     }
 
-    function withdrawEther() external OnlyOwner {
-        // to do optimize this
-        uint amountToSend = address(this).balance;
-        owner.transfer(amountToSend);
+    // to do unify this withdrawing functions
 
-        emit EtherWithdrawed(amountToSend);
-    }
+    /// @param option: Can be 0 for ether or 1 for tokens
+    function manageFunds(bool ofManager, uint8 option, uint256 campaignID) external OnlyOwner {
+        if (ofManager) { // AirMan instance
+            if (option == 0) { // Withdraw Ether
+                // to do optimize this
+                uint amountToSend = address(this).balance;
+                owner.transfer(amountToSend);
 
-    function withdrawManagerTokens() external OnlyOwner {
-        uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
-        ERC20(tokenAddress).transfer(owner, toSend);
+                emit EtherWithdrawed(amountToSend);
+            } else if (option == 1) { // Withdraw Tokens
+                uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+                ERC20(tokenAddress).transfer(owner, toSend);
 
-        emit WithdrawedTokens(toSend);
-    }
-
-    function withdrawCampaignTokens(uint256 campaignID) external OnlyOwner {
-        require(campaignID <= lastCampaignID, 
-            'AirdropManager.toggleParticipation: This campaign ID does not exist');
-        AirdropCampaign(campaigns[campaignID].campaignAddress).withdrawTokens();
+                emit WithdrawedTokens(toSend);
+            } else {
+                revert('Only accepts 0 or 1');
+            }
+        } else { // Airdrop Campaign instance
+            if (option == 0) { // Withdraw Ether
+                require(campaignID <= lastCampaignID, 
+                    'AirMan.toggleParticipation: This ID does not exist');
+                AirdropCampaign(campaigns[campaignID].campaignAddress).withdrawEther();
+            } else if (option == 1) { // Withdraw Tokens
+                require(campaignID <= lastCampaignID, 
+                    'AirMan.toggleParticipation: This ID does not exist');
+                AirdropCampaign(campaigns[campaignID].campaignAddress).withdrawTokens();
+            } else {
+                revert('Only accepts 0 or 1');
+            }
+        }
     }
 }
 
@@ -199,7 +220,7 @@ contract AirdropCampaign {
     uint256 public ownerTokenWithdrawDate; // The date the owner can withdraw the tokens
 
     modifier OnlyOwner() {
-        require(msg.sender == owner, 'This can only be done by the owner');
+        require(msg.sender == owner);
         _;
     }
     
@@ -216,9 +237,6 @@ contract AirdropCampaign {
     event EtherWithdrawed(uint256 amount);
     event TokenClaimed(address participantAddress, uint256 claimed);
     event UserParticipationToggled(address participantAddress, bool isBanned);
-    //event NewWhitelistFee(uint256 newFeeInGwei);
-    //event NewMaxParticipantAmount(uint256 newFeeInGwei);
-    //event NewAmountForEachUser(uint256 newAmountForEachUser);
     event WithdrawedTokens(uint256 Amount);
     event ModifiedValue(string modifiedValue, uint256 newValue);
 
@@ -274,11 +292,10 @@ contract AirdropCampaign {
         }
 
         emit ModifiedValue(modifiedValue, newValue);
-
     }
 
     function toggleParticipation(address PartAddr) external OnlyOwner {
-        require(block.timestamp <= claimableSince, 'AirdropCampaign.toggleIsActive: Can not modify users, time is up');
+        require(block.timestamp <= claimableSince, "AirdropCampaign.toggleIsActive: Can't modify users, time is up");
         require(participantInfo[PartAddr].ParticipantAddress == PartAddr, 
             "AirdropCampaign.toggleParticipation: Participant doesn't exists");
 
@@ -296,7 +313,7 @@ contract AirdropCampaign {
     function toggleOption(uint8 option) external OnlyOwner {
             if (option == 0) { // isActive
                 require(block.timestamp <= claimableSince, 
-                    'AirdropCampaign.toggleIsActive: Can not modify status, time is up');
+                    "AirdropCampaign.toggleIsActive: Can't modify users, time is up");
 
                 if (isActive == true) {
                     isActive = false;
@@ -318,7 +335,7 @@ contract AirdropCampaign {
 
     function withdrawTokens() external OnlyOwner {
         require(block.timestamp >= ownerTokenWithdrawDate, 
-            'AirdropCampaign.withdrawTokens: Tokens still not claimable');
+            'AirdropCampaign.withdrawTokens: Tokens not claimable yet');
         uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
         ERC20(tokenAddress).transfer(owner, toSend);
 
@@ -328,7 +345,8 @@ contract AirdropCampaign {
     function withdrawEther() external OnlyOwner {
         // to do optimize this
         uint amountToSend = address(this).balance;
-        owner.transfer(amountToSend);
+        address payable airManOwner = AirdropManager(owner).owner();
+        airManOwner.transfer(amountToSend);
 
         emit EtherWithdrawed(amountToSend);
     }
@@ -338,15 +356,15 @@ contract AirdropCampaign {
         require(acceptPayableWhitelist, 
             'AirdropCampaign.addToPayableWhitelist: Payable whitelist is not active');
         require(msg.value == whitelistFee,
-            'AirdropCampaign.addToPayableWhitelist: You need to deposit the minimum fee');
+            'AirdropCampaign.addToPayableWhitelist: Minimum fee not sent');
         _addToWhitelist(msg.sender); 
     }
 
     function receiveTokens() external {
-        require(block.timestamp >= claimableSince, 'AirdropCampaign: Airdrop still not claimable');
-        require(participantInfo[msg.sender].canReceive == true, 'AirdropCampaign: You can not claim this airdrop');
+        require(block.timestamp >= claimableSince, 'Airdrop not claimable yet');
+        require(participantInfo[msg.sender].canReceive == true, "You can't claim this airdrop");
         require(participantInfo[msg.sender].claimed == false, 
-            'AirdropCampaign: You already claimed your tokens');
+            'You already claimed');
 
         uint256 _ToSend;
         if (fixedAmount) { 
@@ -366,7 +384,7 @@ contract AirdropCampaign {
             'AirdropCampaign._addToWhitelist: Address zero can not join the Airdrop');
         require(isActive, 'AirdropCampaign._addToWhitelist: Campaign inactive');
         require(block.timestamp <= claimableSince, 
-            'AirdropCampaign._addToWhitelist: Campaign time ended');
+            'AirdropCampaign._addToWhitelist: Campaign ended');
         require(participantInfo[PartAddr].ParticipantAddress != PartAddr, 
             'AirdropCampaign._addToWhitelist: Participant already exists');
         if (fixedAmount) {
