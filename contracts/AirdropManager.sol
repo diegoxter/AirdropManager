@@ -108,11 +108,18 @@ contract AirdropManager {
     returns (AirdropCampaign) 
     {
         require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
-            'No tokens send to new Campaign');
+            "Can't send tokens to new Campaign");
         require(amountForCampaign > amountForEveryUser); // to do what?
         require(endsIn > 0);
         AirdropCampaign newInstance = 
-            new AirdropCampaign(owner, block.timestamp + endsIn, tokenAddress, hasFixedAmount, amountForEveryUser);
+            new AirdropCampaign(
+                owner, 
+                block.timestamp + endsIn, 
+                tokenAddress, 
+                hasFixedAmount, 
+                amountForEveryUser, 
+                amountForCampaign,
+                address(this));
 
         require(ERC20(tokenAddress).transfer(address(newInstance), amountForCampaign));
 
@@ -158,7 +165,9 @@ contract AirdropManager {
 // to do refactor onlyOwner
 contract AirdropCampaign {
     address payable owner;
+    address public airMan;
     address tokenAddress;
+    uint256 tokenAmount = 0;
     bool public isActive;
     uint256 public claimableSince;
     bool public acceptPayableWhitelist = false;
@@ -195,18 +204,22 @@ contract AirdropCampaign {
         uint256 endDate, 
         address _tokenAddress, 
         bool hasFixedAmount,
-        uint256 valueForEachUser  // can be 0
+        uint256 valueForEachUser,  // can be 0
+        uint256 amountForCampaign,
+        address airManAddress
     ) 
     {
         require(ownerAddress != address(0));
         require(_tokenAddress != address(0));
 
         owner = ownerAddress;
+        airMan = airManAddress;
         tokenAddress = _tokenAddress;
         claimableSince = endDate;
         ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
         isActive = true;
         fixedAmount = hasFixedAmount;
+        tokenAmount = amountForCampaign;
 
         if (hasFixedAmount) 
             amountForEachUser = valueForEachUser;
@@ -240,7 +253,7 @@ contract AirdropCampaign {
             amountForEachUser = newValue;
             modifiedValue = 'amountForEachUser';
         } else {
-            revert('Only accepts from 0 to 3');
+            revert('Only accepts from 0 to 2');
         }
 
         emit ModifiedValue(modifiedValue, newValue);
@@ -286,24 +299,29 @@ contract AirdropCampaign {
             }
     }
 
-    function withdrawTokens() external onlyOwner {
-        require(block.timestamp >= ownerTokenWithdrawDate, 
-            'Tokens not claimable yet');
-        uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
-        require(ERC20(tokenAddress).transfer(owner, toSend));
+    function manageFunds(uint8 option, bool toOwner) external onlyOwner {
+         if (option == 0) { // Withdraw Ether
+                require(block.timestamp >= claimableSince, 
+                    'Ether not claimable yet');
+                // to do optimize this
+                uint amountToSend = address(this).balance;
+                owner.transfer(amountToSend);
 
-        emit WithdrawedTokens(toSend);
-    }
+                emit EtherWithdrawed(amountToSend);
+            } else if (option == 1) { // Withdraw Tokens
+                require(block.timestamp >= ownerTokenWithdrawDate, 
+                    'Tokens not claimable yet');
+                uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+                if (toOwner) {
+                    require(ERC20(tokenAddress).transfer(owner, toSend));
+                } else {
+                    require(ERC20(tokenAddress).transfer(airMan, toSend));
+                }
 
-    function withdrawEther() external onlyOwner {
-        require(block.timestamp >= claimableSince, 
-            'Ether not claimable yet');
-        // to do optimize this
-        uint amountToSend = address(this).balance;
-        address payable airManOwner = AirdropManager(owner).owner();
-        airManOwner.transfer(amountToSend);
-
-        emit EtherWithdrawed(amountToSend);
+                emit WithdrawedTokens(toSend);
+            } else {
+                revert('Only accepts 0 or 1');
+            }
     }
 
     // User functions
@@ -325,7 +343,7 @@ contract AirdropCampaign {
         if (fixedAmount) { 
             _ToSend = amountForEachUser;
         } else {
-            _ToSend = ERC20(tokenAddress).balanceOf(address(this)) / participantAmount;
+            _ToSend = tokenAmount / participantAmount;
         }
 
         participantInfo[msg.sender].claimed = true;
@@ -354,7 +372,7 @@ contract AirdropCampaign {
             'Participant already exists');
         if (fixedAmount) {
             require(participantAmount + 1 <= maxParticipantAmount,
-            'Can not join, whitelist is full');
+            "Can't join, whitelist is full");
         }
         participantInfo[PartAddr].ParticipantAddress = PartAddr;
         participantInfo[PartAddr].canReceive = true;

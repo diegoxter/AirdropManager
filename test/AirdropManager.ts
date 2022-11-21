@@ -181,18 +181,17 @@ describe('AirdropManager', function () {
         )
 
         // add users to Dana's campaign
-        await expect(danaAirMan.connect(dana).batchAddToWhitelist(0, [alice.address, maria.address, bob.address, random.address])).
+        await expect(danaAirdropInstance.connect(dana).batchAddToWhitelist([alice.address, maria.address, bob.address, random.address])).
         to.emit(danaAirdropInstance, 'NewParticipant')
         // verify these people got added
         for (let thisUser of [ alice, maria, bob, random ]) {
            expect((await danaAirdropInstance.participantInfo(thisUser.address))[1]).to.be.true
         }
         // Let's block Bob
-        await expect(danaAirMan.connect(dana).toggleParticipation(0, bob.address)).
+        await expect(danaAirdropInstance.connect(dana).toggleParticipation(bob.address)).
         to.emit(danaAirdropInstance, 'UserParticipationToggled')
         expect((await danaAirdropInstance.participantInfo(bob.address))[1]).to.be.false
         expect(await danaAirdropInstance.participantAmount()).to.equal(3)
-
 
         // Not claimable yet
         await expect(danaAirdropInstance.connect(random).receiveTokens()).
@@ -203,8 +202,8 @@ describe('AirdropManager', function () {
         await delay(13500)
 
         // Dana cannot modify Random account's access, the campaign is over
-        await expect(danaAirMan.connect(dana).toggleParticipation(0, random.address)).
-        to.be.revertedWith("AirdropCampaign.toggleIsActive: Can't modify users, time is up")
+        await expect(danaAirdropInstance.connect(dana).toggleParticipation(random.address)).
+        to.be.revertedWith("Can't modify users, time is up")
         // Dana is not on whitelist / bob is blocked / cannot block as campaign has ended
         await expect(danaAirdropInstance.connect(dana).receiveTokens()).
         to.be.revertedWith("You can't claim this airdrop")
@@ -244,7 +243,7 @@ describe('AirdropManager', function () {
         let testTokenValue = 50000000000000000n
         let testAirdropValue = 10000000000000000n
         const { AdminPanel, TestValue } = await deployAMFixture()
-        
+
         const bobAirMan = await deployNewAirmanInstance(bob, AdminPanel)
 
         // create new test campaigns
@@ -255,21 +254,20 @@ describe('AirdropManager', function () {
         const bobAirManData = await bobAirMan.campaigns(0)
         const BobAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const bobAirdropInstance = await BobAirdropFactory.attach(`${bobAirManData[2]}`)
-        expect(await Token.balanceOf(bobAirdropInstance.address)).to.equal(testTokenValue)
         
         // Checking the status
         expect(await bobAirdropInstance.acceptPayableWhitelist()).to.be.false
         // Let's turn on payableWhitelist 
-        await expect(bobAirMan.connect(bob).toggleCampaignOption(0, 1)).
+        await expect(bobAirdropInstance.connect(bob).toggleOption(1)).
         to.emit(bobAirdropInstance, 'CampaignStatusToggled')
         // Checking the status
         expect(await bobAirdropInstance.acceptPayableWhitelist()).to.be.true
         // Let's set the maxParticipantAmount
-        await expect(bobAirMan.connect(bob).updateCampaignValue(0, 1, 5)).
+        await expect(bobAirdropInstance.connect(bob).updateValue(1, 5)).
         to.emit(bobAirdropInstance, 'ModifiedValue')
 
         // setting the fee
-        await expect(bobAirMan.connect(bob).updateCampaignValue(0, 0, TestValue)).
+        await expect(bobAirdropInstance.connect(bob).updateValue(0, TestValue)).
         to.emit(bobAirdropInstance, 'ModifiedValue')
 
         for (let thisUser of [ alice, bob, dana, maria, random ]) {
@@ -323,12 +321,12 @@ describe('AirdropManager', function () {
         expect(await Token.balanceOf(bobAirdropInstance.address)).to.equal(testTokenValue)
 
         // Let's turn on payableWhitelist
-        await expect(bobAirMan.connect(bob).toggleCampaignOption(0, 1)).
+        await expect(bobAirdropInstance.connect(bob).toggleOption(1)).
         to.emit(bobAirdropInstance, 'CampaignStatusToggled')
         // setting the fee and the max amount of participants
-        await expect(bobAirMan.connect(bob).updateCampaignValue(0, 0, 0)).
+        await expect(bobAirdropInstance.connect(bob).updateValue(0, 0)).
         to.emit(bobAirdropInstance, 'ModifiedValue')
-        await expect(bobAirMan.connect(bob).updateCampaignValue(0, 1, 3)).
+        await expect(bobAirdropInstance.connect(bob).updateValue(1, 3)).
         to.emit(bobAirdropInstance, 'ModifiedValue')
 
         for (let thisUser of [ dana, maria, random ]) {
@@ -342,7 +340,8 @@ describe('AirdropManager', function () {
         await expect(bobAirdropInstance.connect(alice).addToPayableWhitelist({
             value: 0,
             })).
-        to.be.revertedWith('AirdropCampaign._addToWhitelist.hasFixedAmount: Can not join, whitelist is full')
+        to.be.revertedWith("Can't join, whitelist is full")
+
     })
 
     it('allows the owner to withdraw tokens and Ether', async function () {
@@ -362,13 +361,13 @@ describe('AirdropManager', function () {
         const MariaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const mariaAirdropInstance = await MariaAirdropFactory.attach(`${mariaAirManData[2]}`)
 
-        await expect(mariaAirMan.connect(maria).toggleCampaignOption(0, 1)).
+        await expect(mariaAirdropInstance.connect(maria).toggleOption(1)).
         to.emit(mariaAirdropInstance, 'CampaignStatusToggled')
         // Let's set the maxParticipantAmount
-        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 1, 5)).
+        await expect(mariaAirdropInstance.connect(maria).updateValue(1, 5)).
         to.emit(mariaAirdropInstance, 'ModifiedValue')
         // setting the fee
-        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 0, TestValue)).
+        await expect(mariaAirdropInstance.connect(maria).updateValue(0, TestValue)).
         to.emit(mariaAirdropInstance, 'ModifiedValue')
 
         for (let thisUser of [ alice, bob, dana, random ]) {
@@ -379,9 +378,9 @@ describe('AirdropManager', function () {
             to.emit(mariaAirdropInstance, 'NewParticipant')
         }
 
-        await expect(mariaAirMan.connect(maria).manageFunds(false, 0, 0)).
+        await expect(mariaAirdropInstance.connect(maria).manageFunds(0, false)).
         to.be.revertedWith('Ether not claimable yet')
-        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+        await expect(mariaAirdropInstance.connect(maria).manageFunds(1, false)).
         to.be.revertedWith('Tokens not claimable yet')
 
         // Time related code
@@ -389,28 +388,28 @@ describe('AirdropManager', function () {
         await delay(13500)
 
         // Not allowed
-        await expect(mariaAirMan.connect(alice).manageFunds(false, 0, 0)).
+        await expect(mariaAirdropInstance.connect(alice).manageFunds(0, false)).
         to.be.reverted
 
         let totalValue = await ethers.provider.getBalance(mariaAirdropInstance.address)
-        await expect(mariaAirMan.connect(maria).manageFunds(false, 0, 0)).
+        await expect(mariaAirdropInstance.connect(maria).manageFunds(0, false)).
         to.changeEtherBalances(
             [mariaAirdropInstance.address, maria.address], [-(totalValue), totalValue]
         )
-        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+        await expect(mariaAirdropInstance.connect(maria).manageFunds(1, true)).
         to.be.revertedWith('Tokens not claimable yet')
+
         expect(await ethers.provider.getBalance(mariaAirdropInstance.address)).
         to.equal(0)
 
         await delay(13500)
 
         // Not allowed
-        await expect(mariaAirMan.connect(alice).manageFunds(false, 1, 0)).
-        to.be.reverted
-        await expect(mariaAirMan.connect(alice).manageFunds(false, 1, 0)).
+        await expect(mariaAirdropInstance.connect(alice).manageFunds(1, false)).
         to.be.reverted
 
-        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+
+        await expect(mariaAirdropInstance.connect(maria).manageFunds(1, false)).
         to.changeTokenBalances(
             Token,
             [mariaAirdropInstance.address, mariaAirMan.address], 
@@ -438,15 +437,15 @@ describe('AirdropManager', function () {
         const MariaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const mariaAirdropInstance = await MariaAirdropFactory.attach(`${mariaAirManData[2]}`)
 
-        await expect(mariaAirMan.connect(maria).toggleCampaignOption(0, 1)).
+        await expect(mariaAirdropInstance.connect(maria).toggleOption(1)).
         to.emit(mariaAirdropInstance, 'CampaignStatusToggled')
 
         // Let's set the maxParticipantAmount
-        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 1, 5)).
+        await expect(mariaAirdropInstance.connect(maria).updateValue(1, 5)).
         to.emit(mariaAirdropInstance, 'ModifiedValue')
         
         // setting the fee
-        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 0, TestValue)).
+        await expect(mariaAirdropInstance.connect(maria).updateValue(0, TestValue)).
         to.emit(mariaAirdropInstance, 'ModifiedValue')
 
         for (let thisUser of [ alice, bob, dana, random ]) {
@@ -462,9 +461,9 @@ describe('AirdropManager', function () {
         to.changeEtherBalances([mariaAirdropInstance.address, alice.address], [-TestValue, TestValue])
         // Checking it worked
         await expect(mariaAirdropInstance.connect(alice).retireFromCampaign()).
-        to.be.revertedWith('AirdropCampaign.retireFromCampaign: You are not participating')
+        to.be.revertedWith('You are not participating')
         await expect(mariaAirdropInstance.connect(maria).retireFromCampaign()).
-        to.be.revertedWith('AirdropCampaign.retireFromCampaign: You are not participating')
+        to.be.revertedWith('You are not participating')
         
         // Time related code
         const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
