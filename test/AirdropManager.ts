@@ -53,7 +53,7 @@ describe('AirdropManager', function () {
 
         // owner needs to approve some tokens to create a new AirManInstance
         await Token.connect(owner).approve(AdminPanel.address, totalToken/BigInt(5))
-        
+
         // Time related code
         const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
         await delay(3500)
@@ -111,40 +111,52 @@ describe('AirdropManager', function () {
         await expect(danaAirMan.connect(dana).newAirdropCampaign(120, 50000000000000000n, true, 2000000000000000n)).
         to.emit(danaAirMan, 'NewAirdropCampaign')
 
-        for (let thisInstance of [ bobAirMan, danaAirMan, mariaAirMan ]) {
-            await expect(thisInstance.connect(alice).toggleCampaignOption(0, 0)).
+        // add the instance of the new campaign
+        // to do this can be optimized **
+        const AirdropFactory = await ethers.getContractFactory('AirdropCampaign')
+
+        const bobAirManData = await bobAirMan.campaigns(0)
+        const danaAirManData = await danaAirMan.campaigns(0)
+
+        const danaAirdropInstance = await AirdropFactory.attach(`${danaAirManData[2]}`)
+        const bobAirdropInstance = await AirdropFactory.attach(`${bobAirManData[2]}`)
+        // **
+        for (let thisInstance of [ bobAirdropInstance, danaAirdropInstance ]) {
+            await expect(thisInstance.connect(alice).toggleOption(0)).
             to.be.reverted
 
-            await expect(thisInstance.connect(random).toggleCampaignOption(0, 0)).
+            await expect(thisInstance.connect(random).toggleOption(0)).
             to.be.reverted
         }
 
         // Verify the campaign is active
-        expect((await danaAirMan.campaigns(0))[4]).to.be.true
+        expect(await danaAirdropInstance.isActive()).to.be.true
 
-        await expect(danaAirMan.connect(dana).toggleCampaignOption(0, 0)).
+        await expect(danaAirdropInstance.connect(dana).toggleOption(0)).
         to.not.be.reverted
-        expect((await danaAirMan.campaigns(0))[4]).to.be.false
+        expect(await danaAirdropInstance.isActive()).to.be.false
 
         await expect(mariaAirMan.connect(maria).newAirdropCampaign(120, 50000000000000000n, false, 0)).
         to.emit(mariaAirMan, 'NewAirdropCampaign')
         // Verify the campaign is active
-        expect((await mariaAirMan.campaigns(0))[4]).to.be.true
+        const mariaAirManData = await mariaAirMan.campaigns(0)
+        const mariaAirdropInstance = await AirdropFactory.attach(`${mariaAirManData[2]}`)
+        expect(await mariaAirdropInstance.isActive()).to.be.true
 
-        await expect(mariaAirMan.connect(maria).toggleCampaignOption(0, 0)).
+        await expect(mariaAirdropInstance.connect(maria).toggleOption(0)).
         to.not.be.reverted
 
         // Verify the campaign has been paused
-        expect((await danaAirMan.campaigns(0))[4]).to.be.false
-        expect((await mariaAirMan.campaigns(0))[4]).to.be.false
+        expect(await danaAirdropInstance.isActive()).to.be.false
+        expect(await mariaAirdropInstance.isActive()).to.be.false
 
         // to do verify the hasFixedAmount and amountForEachUser
-        expect((await bobAirMan.campaigns(0))[5]).to.be.true
-        expect((await danaAirMan.campaigns(0))[5]).to.be.true
-        expect((await mariaAirMan.campaigns(0))[5]).to.be.false
-        expect((await bobAirMan.campaigns(0))[6]).to.equal(10000000000000000n)
-        expect((await danaAirMan.campaigns(0))[6]).to.equal(2000000000000000n)
-        expect((await mariaAirMan.campaigns(0))[6]).to.equal(0)
+        expect((await bobAirMan.campaigns(0))[4]).to.be.true
+        expect((await danaAirMan.campaigns(0))[4]).to.be.true
+        expect((await mariaAirMan.campaigns(0))[4]).to.be.false
+        expect((await bobAirMan.campaigns(0))[5]).to.equal(10000000000000000n)
+        expect((await danaAirMan.campaigns(0))[5]).to.equal(2000000000000000n)
+        expect((await mariaAirMan.campaigns(0))[5]).to.equal(0)
 
         // Reset the test instance count
         instanceCount = 0
@@ -166,10 +178,6 @@ describe('AirdropManager', function () {
         const DanaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const danaAirdropInstance = await DanaAirdropFactory.attach(
             `${danaAirManData[2]}`
-        )
-        
-        expect(await Token.balanceOf(danaAirdropInstance.address)).to.equal(
-            await danaAirdropInstance.tokenBalance()
         )
 
         // add users to Dana's campaign
