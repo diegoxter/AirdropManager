@@ -379,6 +379,8 @@ contract AirdropCampaign {
         emit TokenClaimed(msg.sender, _ToSend);
     }
 
+    // to do a function for user to retire from a campaign 
+
     function _addToWhitelist(address PartAddr) internal { // ** related
         require(PartAddr != address(0), 
             'AirdropCampaign._addToWhitelist: Address zero can not join the Airdrop');
