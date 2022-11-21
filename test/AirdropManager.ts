@@ -4,8 +4,6 @@ import { ethers } from 'hardhat'
 import '@nomicfoundation/hardhat-chai-matchers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
-
-// to do refactor all this
 describe('AirdropManager', function () {
 
     const totalToken = 10000000000000000000n
@@ -86,7 +84,7 @@ describe('AirdropManager', function () {
 
         return AirManInstance
     }
-/*
+
     it('creates new Airdrop Manager instances, respecting ownership (and toggleCampaign)', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
 
@@ -338,8 +336,8 @@ describe('AirdropManager', function () {
             })).
         to.be.revertedWith('AirdropCampaign._addToWhitelist.hasFixedAmount: Can not join, whitelist is full')
     })
-*/
-    it('allows to withdraw the AirMan, individual AirCampaigns tokens and Ether', async function () {
+
+    it('allows the owner to withdraw tokens and Ether', async function () {
         const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
         let testTokenValue = 50000000000000000n
         let testAirdropValue = 15000000000000000n
@@ -356,8 +354,127 @@ describe('AirdropManager', function () {
         const MariaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
         const mariaAirdropInstance = await MariaAirdropFactory.attach(`${mariaAirManData[2]}`)
 
-        // to do all of the rest
+        await expect(mariaAirMan.connect(maria).toggleCampaignOption(0, 1)).
+        to.emit(mariaAirdropInstance, 'CampaignStatusToggled')
+        // Let's set the maxParticipantAmount
+        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 1, 5)).
+        to.emit(mariaAirdropInstance, 'ModifiedValue')
+        // setting the fee
+        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 0, TestValue)).
+        to.emit(mariaAirdropInstance, 'ModifiedValue')
+
+        for (let thisUser of [ alice, bob, dana, random ]) {
+            // Verify they can't reclaim, add them, verify they got enabled
+            await expect(mariaAirdropInstance.connect(thisUser).addToPayableWhitelist({
+                value: TestValue,
+            })).
+            to.emit(mariaAirdropInstance, 'NewParticipant')
+        }
+
+        await expect(mariaAirMan.connect(maria).manageFunds(false, 0, 0)).
+        to.be.revertedWith('Ether not claimable yet')
+        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+        to.be.revertedWith('Tokens not claimable yet')
+
+        // Time related code
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        await delay(13500)
+
+        // Not allowed
+        await expect(mariaAirMan.connect(alice).manageFunds(false, 0, 0)).
+        to.be.reverted
+
+        let totalValue = await ethers.provider.getBalance(mariaAirdropInstance.address)
+        await expect(mariaAirMan.connect(maria).manageFunds(false, 0, 0)).
+        to.changeEtherBalances(
+            [mariaAirdropInstance.address, maria.address], [-(totalValue), totalValue]
+        )
+        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+        to.be.revertedWith('Tokens not claimable yet')
+        expect(await ethers.provider.getBalance(mariaAirdropInstance.address)).
+        to.equal(0)
+
+        await delay(13500)
+
+        // Not allowed
+        await expect(mariaAirMan.connect(alice).manageFunds(false, 1, 0)).
+        to.be.reverted
+        await expect(mariaAirMan.connect(alice).manageFunds(false, 1, 0)).
+        to.be.reverted
+
+        await expect(mariaAirMan.connect(maria).manageFunds(false, 1, 0)).
+        to.changeTokenBalances(
+            Token,
+            [mariaAirdropInstance.address, mariaAirMan.address], 
+            [-50000000000000000n, 50000000000000000n]
+        )
+        expect(await Token.balanceOf(mariaAirdropInstance.address)).
+        to.equal(0)
 
     })
+
+    it('allows users to retire from campaign, returning their Ether', async function () {
+        const [ alice, bob, dana, maria, random ] = await ethers.getSigners()
+        let testTokenValue = 50000000000000000n
+        let testAirdropValue = 15000000000000000n
+        const { AdminPanel, TestValue } = await deployAMFixture()
+        
+        const mariaAirMan = await deployNewAirmanInstance(maria, AdminPanel)
+
+        // create new test campaigns
+        await expect(mariaAirMan.connect(maria).newAirdropCampaign(15, testTokenValue, true, testAirdropValue)).
+        to.emit(mariaAirMan, 'NewAirdropCampaign')
+
+        // add the instance of the new campaign
+        const mariaAirManData = await mariaAirMan.campaigns(0)
+        const MariaAirdropFactory = await ethers.getContractFactory('AirdropCampaign')
+        const mariaAirdropInstance = await MariaAirdropFactory.attach(`${mariaAirManData[2]}`)
+
+        await expect(mariaAirMan.connect(maria).toggleCampaignOption(0, 1)).
+        to.emit(mariaAirdropInstance, 'CampaignStatusToggled')
+
+        // Let's set the maxParticipantAmount
+        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 1, 5)).
+        to.emit(mariaAirdropInstance, 'ModifiedValue')
+        
+        // setting the fee
+        await expect(mariaAirMan.connect(maria).updateCampaignValue(0, 0, TestValue)).
+        to.emit(mariaAirdropInstance, 'ModifiedValue')
+
+        for (let thisUser of [ alice, bob, dana, random ]) {
+            // Verify they can't reclaim, add them, verify they got enabled
+            await expect(mariaAirdropInstance.connect(thisUser).addToPayableWhitelist({
+                value: TestValue,
+            })).
+            to.emit(mariaAirdropInstance, 'NewParticipant')
+        }
+
+        // Taking Alice off the campaign
+        await expect(mariaAirdropInstance.connect(alice).retireFromCampaign()).
+        to.changeEtherBalances([mariaAirdropInstance.address, alice.address], [-TestValue, TestValue])
+        // Checking it worked
+        await expect(mariaAirdropInstance.connect(alice).retireFromCampaign()).
+        to.be.revertedWith('AirdropCampaign.retireFromCampaign: You are not participating')
+        await expect(mariaAirdropInstance.connect(maria).retireFromCampaign()).
+        to.be.revertedWith('AirdropCampaign.retireFromCampaign: You are not participating')
+        
+        // Time related code
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+        await delay(13500)
+
+        // They shouldn't be allowed to retire tokens
+        await expect(mariaAirdropInstance.connect(alice).receiveTokens()).
+        to.be.revertedWith("You can't claim this airdrop")
+        await expect(mariaAirdropInstance.connect(maria).receiveTokens()).
+        to.be.revertedWith("You can't claim this airdrop")
+        
+        // They should be allowed to retire tokens
+        for (let thisUser of [ bob, dana, random ]) {
+            await expect(mariaAirdropInstance.connect(thisUser).receiveTokens()).
+            to.emit(mariaAirdropInstance, 'TokenClaimed')
+        }
+
+    })
+
 
 })

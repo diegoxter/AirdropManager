@@ -289,6 +289,8 @@ contract AirdropCampaign {
         } else if (option == 3) {
             tokenBalance = ERC20(tokenAddress).balanceOf(address(this));
             modifiedValue = 'tokenBalance';
+        } else {
+            revert('Only accepts from 0 to 3');
         }
 
         emit ModifiedValue(modifiedValue, newValue);
@@ -310,6 +312,7 @@ contract AirdropCampaign {
         emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].canReceive);
     }
 
+    /// @param option: 0 isActive 1 acceptPayableWhitelist
     function toggleOption(uint8 option) external OnlyOwner {
             if (option == 0) { // isActive
                 require(block.timestamp <= claimableSince, 
@@ -335,7 +338,7 @@ contract AirdropCampaign {
 
     function withdrawTokens() external OnlyOwner {
         require(block.timestamp >= ownerTokenWithdrawDate, 
-            'AirdropCampaign.withdrawTokens: Tokens not claimable yet');
+            'Tokens not claimable yet');
         uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
         ERC20(tokenAddress).transfer(owner, toSend);
 
@@ -343,6 +346,8 @@ contract AirdropCampaign {
     }
 
     function withdrawEther() external OnlyOwner {
+        require(block.timestamp >= claimableSince, 
+            'Ether not claimable yet');
         // to do optimize this
         uint amountToSend = address(this).balance;
         address payable airManOwner = AirdropManager(owner).owner();
@@ -354,7 +359,7 @@ contract AirdropCampaign {
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
         require(acceptPayableWhitelist, 
-            'AirdropCampaign.addToPayableWhitelist: Payable whitelist is not active');
+            'AirdropCampaign.addToPayableWhitelist: Payable whitelist not active');
         require(msg.value == whitelistFee,
             'AirdropCampaign.addToPayableWhitelist: Minimum fee not sent');
         _addToWhitelist(msg.sender); 
@@ -379,11 +384,19 @@ contract AirdropCampaign {
         emit TokenClaimed(msg.sender, _ToSend);
     }
 
-    // to do a function for user to retire from a campaign 
+    // to do test this
+    function retireFromCampaign() public {
+        require(participantInfo[msg.sender].canReceive,
+            'AirdropCampaign.retireFromCampaign: You are not participating');
+        require(block.timestamp <= claimableSince,
+            'AirdropCampaign.retireFromCampaign: Campaign over, can not retire');
+        participantInfo[msg.sender].canReceive = false; // we soft ban the user, to keep spammers out
+        // to do optimize this
+        payable(msg.sender).transfer(whitelistFee);
+    }
 
     function _addToWhitelist(address PartAddr) internal { // ** related
-        require(PartAddr != address(0), 
-            'AirdropCampaign._addToWhitelist: Address zero can not join the Airdrop');
+        require(PartAddr != address(0));
         require(isActive, 'AirdropCampaign._addToWhitelist: Campaign inactive');
         require(block.timestamp <= claimableSince, 
             'AirdropCampaign._addToWhitelist: Campaign ended');
