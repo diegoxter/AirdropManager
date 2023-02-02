@@ -5,6 +5,7 @@ contract AdminPanel {
     address payable public owner;
     uint public feeInGwei;
     AirManInstance[] public deployedManagers;
+    // TO DO add a function to track the airdrops a user has been part of
 
     struct AirManInstance {
         address owner;
