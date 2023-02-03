@@ -15,7 +15,7 @@ export default {
     },
     networks: {
         fantom_testnet: {
-            url: `https://rpc.testnet.fantom.network/`,
+            url: `https://rpc.ankr.com/fantom_testnet`,
             accounts: {
                 mnemonic: MNEMONIC,
             },
@@ -23,9 +23,9 @@ export default {
         },
         matic_testnet: {
             url: `https://matic-mumbai.chainstacklabs.com`,
-            /*accounts: {
+            accounts: {
                 mnemonic: MNEMONIC,
-            },*/
+            },
             chainId: 80001,
         },
         nova_network: {

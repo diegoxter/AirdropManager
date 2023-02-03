@@ -1,7 +1,7 @@
 {
-    "name": "aztec-airdrop-manager",
+    "name": "airdrop-manager",
     "version": "0.0.1",
-    "description": "Aztec compatible airdrop manager",
+    "description": "Airdrop manager",
     "private": true,
     "repository": "",
     "author": "Jiego",
