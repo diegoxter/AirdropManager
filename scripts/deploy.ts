@@ -26,19 +26,20 @@ async function main() {
     const adminPanel = await AirManAdminPanel.deploy(TestValue);
 
     await adminPanel.deployed();
-        // Time related code
-        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-        await delay(3500);
+            // Time related code
+            const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            await delay(3500);
     
     console.log('Approving tokens to the Admin Panel ...')
     expect(await Token.connect(owner).approve(adminPanel.address, 200000000000000000n)).
         to.emit(Token, 'Approval')
+            await delay(3500);
     expect(await Token.allowance(owner.address, adminPanel.address)).
         to.equal(200000000000000000n)
     console.log(await Token.connect(owner).allowance(owner.address, adminPanel.address))
-        // Time related code
-        await delay(3500)
-        console.log(`Admin panel deployed in ${adminPanel.address}`);
+            // Time related code
+            await delay(4500)
+    console.log(`Admin panel deployed in ${adminPanel.address}`);
 
     // Deploying an AirdropFactory
     console.log('Deploying the AirdropFactory ...')
@@ -51,9 +52,9 @@ async function main() {
     // Connecting to the new AirMan instance address
     console.log('Connecting to the new AirMan instance ...')
     const newInstanceData = await adminPanel.deployedManagers(0)
-    console.log('1')
+            await delay(3500)
     const AirManFactory = await ethers.getContractFactory('AirdropManager')
-    console.log('2')
+            await delay(3500)
     const airManInstance = await AirManFactory.attach(
         `${newInstanceData[1]}`
     )
