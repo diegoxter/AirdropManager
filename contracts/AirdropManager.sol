@@ -5,6 +5,7 @@ contract AdminPanel {
     address payable public owner;
     uint public feeInGwei;
     AirManInstance[] public deployedManagers;
+    uint256 public instanceIDs;
     // TO DO add a function to track the airdrops a user has been part of
 
     struct AirManInstance {
@@ -12,6 +13,13 @@ contract AdminPanel {
         address instanceAddress;
         address instanceToken;
     }
+
+    struct DeployedByUser {
+        uint id;
+        address token;
+    }
+
+    mapping (address =>  DeployedByUser[]) public deployedById;
 
     event EtherWithdrawed(uint256 amount);
     event NewAirdropManagerDeployed(address payable managerOwner, address tokenAddress, address deployedManager);
@@ -59,6 +67,15 @@ contract AdminPanel {
                 instanceToken: instanceToken
             })
         );
+
+        deployedById[newOwner].push(
+            DeployedByUser({
+                id: instanceIDs,
+                token: instanceToken
+            })
+        );
+
+        instanceIDs++;
 
         emit NewAirdropManagerDeployed(payable(msg.sender), instanceToken, address(newInstance));
     }
