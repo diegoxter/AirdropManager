@@ -4,25 +4,21 @@ pragma solidity ^0.8.16;
 contract AdminPanel {
     address payable public owner;
     uint public feeInGwei;
-    AirManInstance[] public deployedManagers;
-    uint256 public instanceIDs;
-    // TO DO add a function to track the airdrops a user has been part of
+    AirManInstance[] public deployedManagers; // TO DO check if this is still needed
+    uint256 public instanceIDs = 0;
 
     struct AirManInstance {
         address owner;
+        uint id;
         address instanceAddress;
         address instanceToken;
     }
 
-    struct DeployedByUser {
-        uint id;
-        address token;
-    }
+    mapping (address =>  AirManInstance[]) public deployedByUser;
 
-    mapping (address =>  DeployedByUser[]) public deployedById;
-
-    event EtherWithdrawed(uint256 amount);
     event NewAirdropManagerDeployed(address payable managerOwner, address tokenAddress, address deployedManager);
+    event NewFee(uint256 newFee);
+    event EtherWithdrawed(uint256 amount);
 
     modifier onlyOwner() {
         require(msg.sender == owner);
@@ -42,42 +38,54 @@ contract AdminPanel {
         revert();
     }
 
-    function newAirdropManagerInstance(address instanceToken, uint256 initialBalance) public payable 
+    function freeAirManInstace(address _instanceToken, uint256 _initialBalance, address payable _newOwner) external onlyOwner {
+        _deployNewAirMan(_instanceToken, _initialBalance, _newOwner);
+    }
+
+    function setFeeInGwei(uint256 newFeeInGwei) external onlyOwner {
+        feeInGwei = newFeeInGwei;
+
+        emit NewFee(newFeeInGwei);
+    }
+
+    function getDeployedInstances(address instanceOwner) public view returns (uint256[] memory) {
+        uint256[] memory instances = new uint256[](deployedByUser[instanceOwner].length);
+        
+        for (uint256 i = 0; i < deployedByUser[instanceOwner].length; i++) {
+            instances[i] = deployedByUser[instanceOwner][i].id;
+        }
+
+        return instances;
+    }
+
+    function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable 
     {
         require(msg.value == feeInGwei, 
-            'Minimum fee not sent');
-        require(ERC20(instanceToken).allowance(msg.sender, address(this)) >= initialBalance,
-            'No tokens sent to new Campaign');    
+            'Minimum fee not sent'); 
         
-        _deployNewAirMan(instanceToken, initialBalance, payable(msg.sender));
+        _deployNewAirMan(_instanceToken, _initialBalance, payable(msg.sender));
     }
 
-    function freeAirManInstace(address instanceToken, uint256 initialBalance, address payable _owner) external onlyOwner {
-        _deployNewAirMan(instanceToken, initialBalance, _owner);
-    }
-
-    function _deployNewAirMan(address instanceToken, uint256 initialBalance, address payable newOwner) internal {
-        AirdropManager newInstance = new AirdropManager(newOwner, instanceToken);
-        require(ERC20(instanceToken).transferFrom(newOwner, address(newInstance), initialBalance));  
+    function _deployNewAirMan(address _instanceToken, uint256 _initialBalance, address payable _newOwner) internal {
+        require(ERC20(_instanceToken).balanceOf(_newOwner) >= _initialBalance);
+        require(ERC20(_instanceToken).allowance(_newOwner, address(this)) >= _initialBalance, 
+            'No allowance to send to the new AirMan'
+        );
+        AirdropManager newInstance = new AirdropManager(_newOwner, _instanceToken);
+        require(ERC20(_instanceToken).transferFrom(_newOwner, address(newInstance), _initialBalance));  
         
-        deployedManagers.push(
-            AirManInstance({
-                owner: newOwner,
-                instanceAddress: address(newInstance),
-                instanceToken: instanceToken
-            })
-        );
+        AirManInstance memory instance;
+        instance.owner = _newOwner;
+        instance.id = instanceIDs;
+        instance.instanceAddress = address(newInstance);
+        instance.instanceToken = _instanceToken;
 
-        deployedById[newOwner].push(
-            DeployedByUser({
-                id: instanceIDs,
-                token: instanceToken
-            })
-        );
+        deployedManagers.push(instance); // TO DO check if this is still needed
+        deployedByUser[_newOwner].push(instance);
 
         instanceIDs++;
 
-        emit NewAirdropManagerDeployed(payable(msg.sender), instanceToken, address(newInstance));
+        emit NewAirdropManagerDeployed(payable(msg.sender), _instanceToken, address(newInstance));
     }
 
     function withdrawEther() external onlyOwner {
@@ -95,6 +103,7 @@ contract AirdropManager {
     address public tokenAddress;
     uint256 internal lastCampaignID = 0;
     Campaign[] public campaigns;
+    // TO DO add a function to track the airdrops a user has been part of
 
     struct Campaign {
         uint256 campaignID;
@@ -122,11 +131,18 @@ contract AirdropManager {
         tokenAddress = _tokenAddress;
     }
     
-    function newAirdropCampaign(uint endsIn, uint256 amountForCampaign, bool hasFixedAmount, uint256 amountForEveryUser) public onlyOwner 
-    returns (AirdropCampaign) 
+    function newAirdropCampaign(
+        uint endsIn, 
+        uint256 amountForCampaign,
+        bool hasFixedAmount, 
+        uint256 amountForEveryUser
+    ) 
+        public 
+        onlyOwner 
+        returns (AirdropCampaign) 
     {
         require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
-            "Can't send tokens to new Campaign");
+            "Not enough tokens for the new Campaign");
         require(amountForCampaign > amountForEveryUser); // to do what?
         require(endsIn > 0);
         AirdropCampaign newInstance = 
@@ -137,7 +153,8 @@ contract AirdropManager {
                 hasFixedAmount, 
                 amountForEveryUser, 
                 amountForCampaign,
-                address(this));
+                address(this)
+            );
 
         require(ERC20(tokenAddress).transfer(address(newInstance), amountForCampaign));
 
@@ -159,7 +176,7 @@ contract AirdropManager {
         return newInstance;
     }
 
-    // to do unify this withdrawing functions
+    // to do unify these withdrawing functions
 
     /// @param option: Can be 0 for ether or 1 for tokens
     function manageFunds(uint8 option) external onlyOwner {
