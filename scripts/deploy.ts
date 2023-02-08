@@ -21,12 +21,14 @@ async function main() {
     console.log(`Test token deployed in ${Token.address}, owner address has ${await Token.balanceOf(owner.address)} tokens`);
 
     // Deploying the Admin Panel
-    console.log('Deploying the Admin Panel ...')
+    console.log('Deploying AdminPanel ...')
     const AirManAdminPanel = await ethers.getContractFactory("AdminPanel");
     const adminPanel = await AirManAdminPanel.deploy(TestValue);
 
     await adminPanel.deployed();
-            // Time related code
+    console.log(`AdminPanel deployed in ${adminPanel.address}`);
+
+    /* Time related code
             const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await delay(3500);
     
@@ -61,7 +63,7 @@ async function main() {
     console.log('3')
 
     console.log(`New AirMan instance deployed in ${airManInstance.address}`);
-
+*/
 }
 
 main().catch((error) => {
