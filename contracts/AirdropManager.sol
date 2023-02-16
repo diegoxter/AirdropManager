@@ -176,6 +176,10 @@ contract AirdropManager {
         return newInstance;
     }
 
+    function showDeployedCampaigns() external view returns (uint256) {
+        return campaigns.length;
+    }
+
     // to do unify these withdrawing functions
 
     /// @param option: Can be 0 for ether or 1 for tokens
