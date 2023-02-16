@@ -132,7 +132,7 @@ contract AirdropManager {
     }
     
     function newAirdropCampaign(
-        uint endsIn, 
+        uint256 endsIn, 
         uint256 amountForCampaign,
         bool hasFixedAmount, 
         uint256 amountForEveryUser
