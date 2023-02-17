@@ -153,7 +153,7 @@ contract AirdropManager {
                 hasFixedAmount, 
                 amountForEveryUser, 
                 amountForCampaign,
-                address(this)
+                payable(address(this))
             );
 
         require(ERC20(tokenAddress).transfer(address(newInstance), amountForCampaign));
@@ -245,14 +245,14 @@ contract AirdropCampaign {
         bool hasFixedAmount,
         uint256 valueForEachUser,  // can be 0
         uint256 amountForCampaign,
-        address airManAddress
+        address payable airManAddress
     ) 
     {
         require(ownerAddress != address(0));
         require(_tokenAddress != address(0));
 
         owner = ownerAddress;
-        airMan = payable(airManAddress);
+        airMan = airManAddress;
         tokenAddress = _tokenAddress;
         claimableSince = endDate;
         ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
