@@ -184,20 +184,24 @@ contract AirdropManager {
 
     /// @param option: Can be 0 for ether or 1 for tokens
     function manageFunds(uint8 option) external onlyOwner {
-            if (option == 0) { // Withdraw Ether
-                // to do optimize this
-                uint amountToSend = address(this).balance;
-                owner.transfer(amountToSend);
+        if (option == 0) { // Withdraw Ether
+            // to do optimize this
+            uint amountToSend = address(this).balance;
+            owner.transfer(amountToSend);
 
-                emit EtherWithdrawed(amountToSend);
-            } else if (option == 1) { // Withdraw Tokens
-                uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
-                require(ERC20(tokenAddress).transfer(owner, toSend));
+            emit EtherWithdrawed(amountToSend);
+        } else if (option == 1) { // Withdraw Tokens
+            uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+            require(ERC20(tokenAddress).transfer(owner, toSend));
 
-                emit WithdrawedTokens(toSend);
-            } else {
-                revert('Only accepts 0 or 1');
-            }
+            emit WithdrawedTokens(toSend);
+        } else {
+            revert('Only accepts 0 or 1');
+        }
+    }
+
+    function getEtherBalance() external view returns (uint) {
+        return address(this).balance;
     }
 }
 
