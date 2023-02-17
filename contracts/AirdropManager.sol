@@ -204,7 +204,7 @@ contract AirdropManager {
 // to do refactor onlyOwner
 contract AirdropCampaign {
     address payable owner;
-    address public airMan;
+    address payable airMan;
     address tokenAddress;
     uint256 tokenAmount = 0;
     bool public isActive;
@@ -252,7 +252,7 @@ contract AirdropCampaign {
         require(_tokenAddress != address(0));
 
         owner = ownerAddress;
-        airMan = airManAddress;
+        airMan = payable(airManAddress);
         tokenAddress = _tokenAddress;
         claimableSince = endDate;
         ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
@@ -367,7 +367,7 @@ contract AirdropCampaign {
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
         require(acceptPayableWhitelist, 
             'Payable whitelist not active');
-        require(msg.value == whitelistFee,
+        require(airMan.send(whitelistFee),
             'Minimum fee not sent');
         _addToWhitelist(msg.sender); 
     }
