@@ -115,6 +115,7 @@ contract AirdropManager {
     }
 
     event NewAirdropCampaign(uint256 endsIn, uint256 amountToAirdrop);
+    event EtherReceived(uint256 amount);
     event EtherWithdrawed(uint256 amount);
     event WithdrawedTokens(uint256 Amount);
 
@@ -129,6 +130,10 @@ contract AirdropManager {
 
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
+    }
+
+    receive() external payable{
+        emit EtherReceived(msg.value);
     }
     
     function newAirdropCampaign(
