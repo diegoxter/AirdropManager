@@ -274,6 +274,8 @@ contract AirdropCampaign {
     }
 
     receive() external payable{
+        require(msg.value == whitelistFee, 
+        'Must send the exact whitelistFee value');
         addToPayableWhitelist();
     }
 
