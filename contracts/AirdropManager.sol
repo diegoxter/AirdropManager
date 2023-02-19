@@ -214,8 +214,8 @@ contract AirdropManager {
 contract AirdropCampaign {
     address payable owner;
     address payable airMan;
-    address tokenAddress;
-    uint256 tokenAmount = 0;
+    address public tokenAddress;
+    uint256 public tokenAmount = 0;
     bool public isActive;
     uint256 public claimableSince;
     bool public acceptPayableWhitelist = false;
@@ -374,8 +374,8 @@ contract AirdropCampaign {
 
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
-        require(acceptPayableWhitelist, 
-            'Payable whitelist not active');
+        // require(acceptPayableWhitelist, 
+        //    'Payable whitelist not active');
         require(airMan.send(whitelistFee),
             'Minimum fee not sent');
         _addToWhitelist(msg.sender); 

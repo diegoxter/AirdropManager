@@ -9,7 +9,7 @@ async function main() {
     console.log(`Deployer address: ${owner.address}`)
 
     // Deploying the Test Token
-    console.log('Deploying the Test token ...')
+    /*console.log('Deploying the Test token ...')
     const tokenFactory = await ethers.getContractFactory('HTA1')
     const Token = await tokenFactory.deploy(
         10000000000000000000n,
@@ -19,7 +19,7 @@ async function main() {
 
     await Token.deployed()
     console.log(`Test token deployed in ${Token.address}, owner address has ${await Token.balanceOf(owner.address)} tokens`);
-
+*/
     // Deploying the Admin Panel
     console.log('Deploying AdminPanel ...')
     const AirManAdminPanel = await ethers.getContractFactory("AdminPanel");
@@ -28,7 +28,15 @@ async function main() {
     await adminPanel.deployed();
     console.log(`AdminPanel deployed in ${adminPanel.address}`);
 
-    /* Time related code
+/* 
+    console.log('Deploying MulticallV2 ...')
+    const MulticallV2 = await ethers.getContractFactory("Multicall2");
+    const multicall = await MulticallV2.deploy();
+
+    await multicall.deployed();
+    console.log(`MulticallV2 deployed in ${multicall.address}`);
+
+    Time related code
             const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await delay(3500);
     
