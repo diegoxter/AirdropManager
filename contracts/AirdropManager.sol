@@ -214,8 +214,8 @@ contract AirdropManager {
 contract AirdropCampaign {
     address payable owner;
     address payable airMan;
-    address tokenAddress;
-    uint256 tokenAmount = 0;
+    address public tokenAddress;
+    uint256 public tokenAmount = 0;
     bool public isActive;
     uint256 public claimableSince;
     bool public acceptPayableWhitelist = false;
