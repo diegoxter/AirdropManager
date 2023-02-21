@@ -409,6 +409,7 @@ contract AirdropCampaign {
         require(block.timestamp <= claimableSince,
             'Campaign over, can not retire');
         participantInfo[msg.sender].canReceive = false; // we soft ban the user, to keep spammers out
+        participantInfo[msg.sender].ParticipantAddress = address(0); // user information is no longer tracked
         // to do optimize this
         payable(msg.sender).transfer(whitelistFee);
     }
