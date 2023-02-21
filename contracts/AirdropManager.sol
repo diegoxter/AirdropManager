@@ -349,29 +349,17 @@ contract AirdropCampaign {
             }
     }
 
-    function manageFunds(uint8 option, bool toOwner) external onlyOwner {
-         if (option == 0) { // Withdraw Ether
-                require(block.timestamp >= claimableSince, 
-                    'Ether not claimable yet');
-                // to do optimize this
-                uint amountToSend = address(this).balance;
-                owner.transfer(amountToSend);
+    function manageFunds(bool toOwner) external onlyOwner {
+        require(block.timestamp >= ownerTokenWithdrawDate, 
+            'Tokens not claimable yet');
+        uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
+        if (toOwner) {
+            require(ERC20(tokenAddress).transfer(owner, toSend));
+        } else {
+            require(ERC20(tokenAddress).transfer(airMan, toSend));
+        }
 
-                emit EtherWithdrawed(amountToSend);
-            } else if (option == 1) { // Withdraw Tokens
-                require(block.timestamp >= ownerTokenWithdrawDate, 
-                    'Tokens not claimable yet');
-                uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
-                if (toOwner) {
-                    require(ERC20(tokenAddress).transfer(owner, toSend));
-                } else {
-                    require(ERC20(tokenAddress).transfer(airMan, toSend));
-                }
-
-                emit WithdrawedTokens(toSend);
-            } else {
-                revert('Only accepts 0 or 1');
-            }
+        emit WithdrawedTokens(toSend);
     }
 
     // User functions
