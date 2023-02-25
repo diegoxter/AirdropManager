@@ -327,26 +327,26 @@ contract AirdropCampaign {
 
     /// @param option: 0 isActive 1 acceptPayableWhitelist
     function toggleOption(uint8 option) external onlyOwner {
-            if (option == 0) { // isActive
-                require(block.timestamp <= claimableSince, 
-                    "Can't modify users, time is up");
+        if (option == 0) { // isActive
+            require(block.timestamp <= claimableSince, 
+                "Can't modify users, time is up");
 
-                if (isActive == true) {
-                    isActive = false;
-                } else {
-                    isActive = true;
-                }
-
-                emit CampaignStatusToggled('Is active?', isActive);
-            } else if (option == 1) { // acceptPayableWhitelist
-                if (acceptPayableWhitelist == true) {
-                    acceptPayableWhitelist = false;
-                } else {
-                    acceptPayableWhitelist = true;
-                }
-
-                emit CampaignStatusToggled('Payable Whitelist?', acceptPayableWhitelist);
+            if (isActive == true) {
+                isActive = false;
+            } else {
+                isActive = true;
             }
+
+            emit CampaignStatusToggled('Is active?', isActive);
+        } else if (option == 1) { // acceptPayableWhitelist
+            if (acceptPayableWhitelist == true) {
+                acceptPayableWhitelist = false;
+            } else {
+                acceptPayableWhitelist = true;
+            }
+
+            emit CampaignStatusToggled('Payable Whitelist?', acceptPayableWhitelist);
+        }
     }
 
     function manageFunds(bool toOwner) external onlyOwner {
@@ -364,8 +364,6 @@ contract AirdropCampaign {
 
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
-        // require(acceptPayableWhitelist, 
-        //    'Payable whitelist not active');
         require(airMan.send(whitelistFee),
             'Minimum fee not sent');
         _addToWhitelist(msg.sender); 
