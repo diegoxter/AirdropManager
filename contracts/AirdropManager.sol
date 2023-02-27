@@ -154,9 +154,9 @@ contract AirdropManager {
             "Not enough tokens for the new Campaign");
         require(amountForCampaign > amountForEachUser); // to do what?
         require(endsIn > 0);
-        if (hasFixedAmount) {
+        if (hasFixedAmount)
             require(maxUserAmount * amountForEachUser == amountForCampaign, 'Wrong amount for each user');
-        }
+
         AirdropCampaign newInstance =
             new AirdropCampaign(
                 block.timestamp + endsIn,
@@ -228,7 +228,6 @@ contract AirdropCampaign {
     address payable owner;
     address payable airMan;
     address public tokenAddress;
-    bool public isActive;
     bool public acceptPayableWhitelist = false;
     bool public fixedAmount;
 
@@ -245,7 +244,6 @@ contract AirdropCampaign {
 
     mapping(address => Participant) public participantInfo;
 
-    event CampaignStatusToggled(bytes18 optionToggled, bool isActive_);
     event NewParticipant(address newParticipant);
     event EtherWithdrawed(uint256 amount);
     event TokenClaimed(address participantAddress, uint256 claimed);
@@ -276,7 +274,6 @@ contract AirdropCampaign {
         tokenAddress = _tokenAddress;
         airMan = airManAddress;
         ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
-        isActive = true;
         fixedAmount = hasFixedAmount;
     }
 
@@ -326,46 +323,19 @@ contract AirdropCampaign {
         emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].isBanned);
     }
 
-    /// @param option: 0 isActive 1 acceptPayableWhitelist
-    function toggleOption(uint8 option) external onlyOwner {
-        if (option == 0) { // isActive
-            require(block.timestamp <= claimableSince,
-                "Can't modify users, time is up");
-
-            if (isActive == true) {
-                isActive = false;
-            } else {
-                isActive = true;
-            }
-
-            emit CampaignStatusToggled('Is active?', isActive);
-        } else if (option == 1) { // acceptPayableWhitelist
-            if (acceptPayableWhitelist == true) {
-                acceptPayableWhitelist = false;
-            } else {
-                acceptPayableWhitelist = true;
-            }
-
-            emit CampaignStatusToggled('Payable Whitelist?', acceptPayableWhitelist);
-        }
-    }
-
-    function manageFunds(bool toOwner) external onlyOwner {
+    function manageFunds() external onlyOwner {
         require(block.timestamp >= ownerTokenWithdrawDate,
             'Tokens not claimable yet');
         uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
-        if (toOwner) {
-            require(ERC20(tokenAddress).transfer(owner, toSend));
-        } else {
-            require(ERC20(tokenAddress).transfer(airMan, toSend));
-        }
+        require(ERC20(tokenAddress).transfer(airMan, toSend));
+        require(owner.send(address(this).balance));
 
         emit WithdrawedTokens(toSend);
     }
 
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
-        require(airMan.send(whitelistFee),
+        require(payable(address(this)).send(whitelistFee),
             'Minimum fee not sent');
         _addToWhitelist(msg.sender);
     }
@@ -389,20 +359,18 @@ contract AirdropCampaign {
         emit TokenClaimed(msg.sender, _ToSend);
     }
 
-    // to do test this
     function retireFromCampaign() public {
         require(participantInfo[msg.sender].ParticipantAddress == msg.sender,
             'You are not participating');
         require(block.timestamp <= claimableSince,
             'Campaign over, can not retire');
         participantInfo[msg.sender].ParticipantAddress = address(0); // user information is no longer tracked
-        // to do optimize this
+
         payable(msg.sender).transfer(whitelistFee);
     }
 
     function _addToWhitelist(address PartAddr) internal { // ** related
         require(PartAddr != address(0));
-        require(isActive, 'Campaign inactive');
         require(block.timestamp <= claimableSince,
             'Campaign ended');
         require(participantInfo[PartAddr].ParticipantAddress != PartAddr,
