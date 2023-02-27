@@ -3,8 +3,8 @@ pragma solidity ^0.8.16;
 
 contract AdminPanel {
     address payable public owner = payable(address(0));
-    uint256 public feeInGwei = 0;
-    uint256 public instanceIDs = 0;
+    uint256 public feeInGwei;
+    uint256 public instanceIDs;
 
     struct AirManInstance {
         uint256 id;
@@ -27,17 +27,18 @@ contract AdminPanel {
     constructor(uint256 _feeInGwei) {
         owner = payable(msg.sender);
         feeInGwei = _feeInGwei;
+        instanceIDs = 0;
     }
 
     receive() external payable{
-        revert();
+        require(false, "AdminPanel does not accept direct payments");
     }
 
     fallback() external payable{
-        revert();
+        require(false, "AdminPanel does not accept direct payments");
     }
 
-    function freeAirManInstace(
+    function deployFreeAirdropManagerInstance(
         address payable _newOwner,
         address _instanceToken,
         uint256 _initialBalance
@@ -45,12 +46,14 @@ contract AdminPanel {
         _deployNewAirMan(_instanceToken, _initialBalance, _newOwner);
     }
 
+    // This fee could either be 0 or any other value
     function setFeeInGwei(uint256 newFeeInGwei) external onlyOwner {
         feeInGwei = newFeeInGwei;
 
         emit NewFee(newFeeInGwei);
     }
 
+    // For frontend purposes
     function getDeployedInstancesByOwner(address instanceOwner) public view returns (uint256[] memory) {
         uint256[] memory instances = new uint256[](deployedByUser[instanceOwner].length);
 
@@ -64,7 +67,7 @@ contract AdminPanel {
     function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable
     {
         require(msg.value == feeInGwei,
-            'Minimum fee not sent');
+            'Exact fee not sent');
 
         _deployNewAirMan(_instanceToken, _initialBalance, payable(msg.sender));
     }
@@ -91,6 +94,7 @@ contract AdminPanel {
     }
 
     function withdrawEther() external onlyOwner {
+        require(address(this).balance > 0, 'No ether to withdraw');
         uint256 amountToSend = address(this).balance;
         owner.transfer(amountToSend);
 
@@ -102,7 +106,7 @@ contract AdminPanel {
 contract AirdropManager {
     address payable public owner;
     address public tokenAddress;
-    uint256 internal lastCampaignID = 0;
+    uint256 internal lastCampaignID;
     Campaign[] public campaigns;
     // TO DO add a function to track the airdrops a user has been part of
 
@@ -132,6 +136,7 @@ contract AirdropManager {
 
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
+        lastCampaignID = 0;
     }
 
     receive() external payable{
