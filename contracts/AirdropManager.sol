@@ -152,7 +152,6 @@ contract AirdropManager {
     {
         require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
             "Not enough tokens for the new Campaign");
-        require(amountForCampaign > amountForEachUser); // to do what?
         require(endsIn > 0);
         if (hasFixedAmount)
             require(maxUserAmount * amountForEachUser == amountForCampaign, 'Wrong amount for each user');
@@ -162,6 +161,7 @@ contract AirdropManager {
                 block.timestamp + endsIn,
                 whitelistFee,
                 amountForCampaign,
+                maxUserAmount,
                 amountForEachUser,
                 owner,
                 tokenAddress,
@@ -255,6 +255,7 @@ contract AirdropCampaign {
         uint256 endDate,
         uint256 _whitelistFee,
         uint256 amountForCampaign,
+        uint256 _maxParticipantAmount,
         uint256 valueForEachUser,  // can be 0
         address payable ownerAddress,
         address _tokenAddress,
@@ -268,8 +269,8 @@ contract AirdropCampaign {
         claimableSince = endDate;
         whitelistFee = _whitelistFee;
         tokenAmount = amountForCampaign;
-        if (hasFixedAmount)
-            amountForEachUser = valueForEachUser;
+        maxParticipantAmount = _maxParticipantAmount;
+        amountForEachUser = valueForEachUser;
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
         airMan = airManAddress;
