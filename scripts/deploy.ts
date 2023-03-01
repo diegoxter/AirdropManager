@@ -5,7 +5,7 @@ import '@nomicfoundation/hardhat-chai-matchers'
 async function main() {
     // TO DO optimize all this by breaking it into several async functions
     const [ owner ] = await ethers.getSigners()
-    const TestValue = ethers.utils.parseEther('0.0001')
+    const TestValue = 1000000000000000000n
     console.log(`Deployer address: ${owner.address}`)
 
     // Deploying the Test Token
@@ -21,7 +21,8 @@ async function main() {
     console.log(`Test token deployed in ${Token.address}, owner address has ${await Token.balanceOf(owner.address)} tokens`);
 */
     // Deploying the Admin Panel
-    console.log('Deploying AdminPanel ...')
+    console.log(`Deploying AdminPanel with fee ${TestValue}... `)
+
     const AirManAdminPanel = await ethers.getContractFactory("AdminPanel");
     const adminPanel = await AirManAdminPanel.deploy(TestValue);
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.16;
 
 contract AdminPanel {
     address payable public owner = payable(address(0));
-    uint256 public feeInGwei;
+    uint256 public feeInWei;
     uint256 public instanceIDs;
 
     struct AirManInstance {
@@ -24,9 +24,9 @@ contract AdminPanel {
         _;
     }
 
-    constructor(uint256 _feeInGwei) {
+    constructor(uint256 _feeInWei) {
         owner = payable(msg.sender);
-        feeInGwei = _feeInGwei;
+        feeInWei = _feeInWei;
         instanceIDs = 0;
     }
 
@@ -47,10 +47,10 @@ contract AdminPanel {
     }
 
     // This fee could either be 0 or any other value
-    function setFeeInGwei(uint256 newFeeInGwei) external onlyOwner {
-        feeInGwei = newFeeInGwei;
+    function setFeeInWei(uint256 newFeeInWei) external onlyOwner {
+        feeInWei = newFeeInWei;
 
-        emit NewFee(newFeeInGwei);
+        emit NewFee(newFeeInWei);
     }
 
     // For frontend purposes
@@ -66,7 +66,7 @@ contract AdminPanel {
 
     function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable
     {
-        require(msg.value == feeInGwei,
+        require(msg.value == feeInWei,
             'Exact fee not sent');
 
         _deployNewAirMan(_instanceToken, _initialBalance, payable(msg.sender));
@@ -202,6 +202,7 @@ contract AirdropManager {
     /// @param option: Can be 0 for ether or 1 for tokens
     function manageFunds(uint8 option) external onlyOwner {
         if (option == 0) { // Withdraw Ether
+            require(address(this).balance > 0, 'No ether to withdraw');
             uint256 amountToSend = address(this).balance;
             owner.transfer(amountToSend);
 
@@ -214,10 +215,6 @@ contract AirdropManager {
         } else {
             revert('Only accepts 0 or 1');
         }
-    }
-
-    function getEtherBalance() external view returns (uint256) {
-        return address(this).balance;
     }
 }
 
@@ -233,7 +230,6 @@ contract AirdropCampaign {
     address payable owner;
     address payable airMan;
     address public tokenAddress;
-    bool public acceptPayableWhitelist = false;
     bool public fixedAmount;
 
     modifier onlyOwner() {
@@ -334,15 +330,17 @@ contract AirdropCampaign {
             'Tokens not claimable yet');
         uint256 toSend = ERC20(tokenAddress).balanceOf(address(this));
         require(ERC20(tokenAddress).transfer(airMan, toSend));
-        require(owner.send(address(this).balance));
+        if (address(this).balance > 0) {
+            require(owner.send(address(this).balance));
+        }
 
         emit WithdrawedTokens(toSend);
     }
 
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
-        require(payable(address(this)).send(whitelistFee),
-            'Minimum fee not sent');
+        require(msg.value == whitelistFee,
+            'Exact fee not sent');
         _addToWhitelist(msg.sender);
     }
 
