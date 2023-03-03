@@ -317,9 +317,10 @@ contract AirdropCampaign {
 
     function toggleParticipation(address PartAddr) external onlyOwner {
         require(block.timestamp <= claimableSince, "Can't modify users, time is up");
-        require(participantInfo[PartAddr].ParticipantAddress == PartAddr,
-            "Participant doesn't exists");
 
+        if (participantInfo[PartAddr].ParticipantAddress != PartAddr) {
+            participantInfo[PartAddr].ParticipantAddress = PartAddr;
+        }
         participantInfo[PartAddr].isBanned = !(participantInfo[PartAddr].isBanned);
 
         emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].isBanned);
@@ -378,7 +379,7 @@ contract AirdropCampaign {
         require(block.timestamp <= claimableSince,
             'Campaign ended');
         require(participantInfo[PartAddr].ParticipantAddress != PartAddr,
-            'Participant already exists');
+            string(abi.encodePacked("Participant already exists ", PartAddr)));
         if (fixedAmount) {
             require(participantAmount + 1 <= maxParticipantAmount,
             "Can't join, whitelist is full");
