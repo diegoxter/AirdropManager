@@ -5,6 +5,7 @@ contract AdminPanel {
     address payable public owner = payable(address(0));
     uint256 public feeInWei;
     uint256 public instanceIDs;
+    AirManInstance[] public deployedManagersById;
 
     struct AirManInstance {
         uint256 id;
@@ -86,6 +87,7 @@ contract AdminPanel {
         instance.instanceAddress = address(newInstance);
         instance.instanceToken = _instanceToken;
 
+        deployedManagersById.push(instance);
         deployedByUser[_newOwner].push(instance);
 
         instanceIDs++;
