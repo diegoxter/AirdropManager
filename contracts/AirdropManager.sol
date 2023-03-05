@@ -252,7 +252,7 @@ contract AirdropCampaign {
     event TokenClaimed(address participantAddress, uint256 claimed);
     event UserParticipationToggled(address participantAddress, bool isBanned);
     event WithdrawedTokens(uint256 Amount);
-    event ModifiedValue(string modifiedValue, uint256 newValue);
+    event ModifiedValue(uint256 newValue);
 
     constructor(
         uint256 endDate,
@@ -298,23 +298,11 @@ contract AirdropCampaign {
         }
     }
 
-    function updateValue(uint8 option, uint256 newValue) external onlyOwner {
-        string memory modifiedValue = '';
+    function updateFee(uint256 newValue) external onlyOwner {
+        require(newValue != whitelistFee, "The new fee can't be the same as the old one");
+        whitelistFee = newValue;
 
-        if (option == 0) {
-            whitelistFee = newValue;
-            modifiedValue = 'whitelistFee';
-        } else if (option == 1) {
-            maxParticipantAmount = newValue;
-            modifiedValue = 'maxParticipantAmount';
-        } else if (option == 2) {
-            amountForEachUser = newValue;
-            modifiedValue = 'amountForEachUser';
-        } else {
-            revert('Only accepts from 0 to 2');
-        }
-
-        emit ModifiedValue(modifiedValue, newValue);
+        emit ModifiedValue(newValue);
     }
 
     function toggleParticipation(address PartAddr) external onlyOwner {
