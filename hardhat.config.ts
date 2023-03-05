@@ -9,7 +9,15 @@ dotenv.config()
 const MNEMONIC = process.env.MNEMONIC
 
 export default {
-    solidity: '0.8.16',
+    solidity: {
+        version: '0.8.16',
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 50,
+            },
+        },
+    },
     mocha: {
         timeout: 100000000,
     },
@@ -34,12 +42,6 @@ export default {
                 mnemonic: MNEMONIC,
             },
             chainId: 87,
-        },
-    },
-    settings: {
-        optimizer: {
-            enabled: true,
-            runs: 200,
         },
     },
 }

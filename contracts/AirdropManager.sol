@@ -1,8 +1,11 @@
-//SPDX-License-Identifier:UNLICENSE
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-contract AdminPanel {
-    address payable public owner = payable(address(0));
+import './tools/AccessControl.sol';
+
+contract AdminPanel is AccessControl {
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
     uint256 public feeInWei;
     uint256 public instanceIDs;
     AirManInstance[] public deployedManagersById;
@@ -20,13 +23,9 @@ contract AdminPanel {
     event NewFee(uint256 newFee);
     event EtherWithdrawed(uint256 amount);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
-    }
-
     constructor(uint256 _feeInWei) {
-        owner = payable(msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
+
         feeInWei = _feeInWei;
         instanceIDs = 0;
     }
@@ -43,12 +42,13 @@ contract AdminPanel {
         address payable _newOwner,
         address _instanceToken,
         uint256 _initialBalance
-        ) external onlyOwner {
+        ) external onlyRole(ADMIN_ROLE) {
         _deployNewAirMan(_instanceToken, _initialBalance, _newOwner);
     }
 
     // This fee could either be 0 or any other value
-    function setFeeInWei(uint256 newFeeInWei) external onlyOwner {
+    function setFeeInWei(uint256 newFeeInWei) external onlyRole(ADMIN_ROLE) {
+        require(newFeeInWei != feeInWei, 'New fee needs to be different from existing fee');
         feeInWei = newFeeInWei;
 
         emit NewFee(newFeeInWei);
@@ -95,10 +95,10 @@ contract AdminPanel {
         emit NewAirdropManagerDeployed(payable(msg.sender), _instanceToken, address(newInstance));
     }
 
-    function withdrawEther() external onlyOwner {
+    function withdrawEther() external onlyRole(ADMIN_ROLE) {
         require(address(this).balance > 0, 'No ether to withdraw');
         uint256 amountToSend = address(this).balance;
-        owner.transfer(amountToSend);
+        payable(msg.sender).transfer(amountToSend);
 
         emit EtherWithdrawed(amountToSend);
     }
