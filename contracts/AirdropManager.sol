@@ -65,10 +65,8 @@ contract AdminPanel is AccessControl {
         return instances;
     }
 
-    function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable
-    {
-        require(msg.value == feeInWei,
-            'Exact fee not sent');
+    function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable {
+        require(msg.value == feeInWei,  'Exact fee not sent');
 
         _deployNewAirMan(_instanceToken, _initialBalance, payable(msg.sender));
     }
@@ -146,9 +144,9 @@ contract AirdropManager {
     }
 
     function newAirdropCampaign(
-        uint256 endsIn,
+        uint256 endsIn, // In seconds
         uint256 amountForCampaign,
-        uint256 whitelistFee,
+        uint256 whitelistFee, // In wei
         uint256 amountForEachUser,
         uint256 maxUserAmount,
         bool hasFixedAmount
@@ -158,7 +156,7 @@ contract AirdropManager {
         returns (AirdropCampaign)
     {
         require(amountForCampaign <= ERC20(tokenAddress).balanceOf(address(this)),
-            "Not enough tokens for the new Campaign");
+            'Not enough tokens for the new Campaign');
         require(endsIn > 0);
         if (hasFixedAmount)
             require(maxUserAmount * amountForEachUser == amountForCampaign, 'Wrong amount for each user');
@@ -197,6 +195,7 @@ contract AirdropManager {
         return newInstance;
     }
 
+    // For frontend purposes
     function showDeployedCampaigns() external view returns (uint256) {
         return campaigns.length;
     }
@@ -226,6 +225,7 @@ contract AirdropCampaign {
     uint256 public claimableSince;
     uint256 public maxParticipantAmount; // helps when fixedAmount is true
     uint256 public participantAmount = 0;
+    uint256 public unclaimedAirdrops = 0;
     uint256 public whitelistFee;
     uint256 public amountForEachUser;
     uint256 public ownerTokenWithdrawDate; // The date the owner can withdraw the tokens
@@ -338,8 +338,7 @@ contract AirdropCampaign {
     function receiveTokens() external {
         require(block.timestamp >= claimableSince, 'Airdrop not claimable yet');
         require(participantInfo[msg.sender].isBanned == false, "You can't claim this airdrop");
-        require(participantInfo[msg.sender].claimed == false,
-            'You already claimed');
+        require(participantInfo[msg.sender].claimed == false, 'You already claimed');
 
         uint256 _ToSend;
         if (fixedAmount) {
@@ -350,16 +349,19 @@ contract AirdropCampaign {
 
         participantInfo[msg.sender].claimed = true;
         require(ERC20(tokenAddress).transfer(msg.sender, _ToSend));
+        unclaimedAirdrops--;
 
         emit TokenClaimed(msg.sender, _ToSend);
     }
 
     function retireFromCampaign() public {
-        require(participantInfo[msg.sender].ParticipantAddress == msg.sender,
-            'You are not participating');
-        require(block.timestamp <= claimableSince,
-            'Campaign over, can not retire');
-        participantInfo[msg.sender].ParticipantAddress = address(0); // user information is no longer tracked
+        require(participantInfo[msg.sender].ParticipantAddress == msg.sender, 'You are not participating');
+        require(block.timestamp <= claimableSince, 'Campaign over, can not retire');
+
+        // user information is no longer tracked
+        participantInfo[msg.sender].ParticipantAddress = address(0);
+        unclaimedAirdrops--;
+        participantAmount--;
 
         payable(msg.sender).transfer(whitelistFee);
     }
@@ -378,6 +380,7 @@ contract AirdropCampaign {
         participantInfo[PartAddr].claimed = false;
 
         participantAmount++;
+        unclaimedAirdrops++;
 
         emit NewParticipant(PartAddr);
     }
