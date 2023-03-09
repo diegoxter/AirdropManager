@@ -29,7 +29,7 @@ async function main() {
     await adminPanel.deployed();
     console.log(`AdminPanel deployed in ${adminPanel.address}`);
 
-/* 
+/*
     console.log('Deploying MulticallV2 ...')
     const MulticallV2 = await ethers.getContractFactory("Multicall2");
     const multicall = await MulticallV2.deploy();
@@ -40,7 +40,7 @@ async function main() {
     Time related code
             const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await delay(3500);
-    
+
     console.log('Approving tokens to the Admin Panel ...')
     expect(await Token.connect(owner).approve(adminPanel.address, 200000000000000000n)).
         to.emit(Token, 'Approval')
@@ -55,7 +55,7 @@ async function main() {
     // Deploying an AirdropFactory
     console.log('Deploying the AirdropFactory ...')
     await adminPanel.connect(owner).newAirdropManagerInstance(
-        Token.address, 
+        Token.address,
         20000000000000000n,
         {
         value: TestValue,
