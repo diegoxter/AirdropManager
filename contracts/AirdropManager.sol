@@ -117,6 +117,7 @@ contract AirdropManager {
         uint256 fee;
         uint256 amountForEachUser; // can be 0
         bool fixedAmount;
+        bool isPrivate;
         AirdropCampaign campaignAddress;
     }
 
@@ -149,7 +150,8 @@ contract AirdropManager {
         uint256 whitelistFee, // In wei
         uint256 amountForEachUser,
         uint256 maxUserAmount,
-        bool hasFixedAmount
+        bool hasFixedAmount,
+        bool _isPrivate
     )
         public
         onlyOwner
@@ -171,7 +173,8 @@ contract AirdropManager {
                 owner,
                 tokenAddress,
                 payable(address(this)),
-                hasFixedAmount
+                hasFixedAmount,
+                _isPrivate
             );
 
         require(ERC20(tokenAddress).transfer(address(newInstance), amountForCampaign));
@@ -182,8 +185,9 @@ contract AirdropManager {
                 endDate: block.timestamp + endsIn,
                 amountToAirdrop: amountForCampaign,
                 fee: whitelistFee,
-                fixedAmount: hasFixedAmount,
                 amountForEachUser: amountForEachUser,
+                fixedAmount: hasFixedAmount,
+                isPrivate: _isPrivate,
                 campaignAddress: newInstance
             })
         );
@@ -233,6 +237,7 @@ contract AirdropCampaign {
     address payable airMan;
     address public tokenAddress;
     bool public fixedAmount;
+    bool public isPrivate;
 
     modifier onlyOwner() {
         require(msg.sender == owner);
@@ -263,7 +268,8 @@ contract AirdropCampaign {
         address payable ownerAddress,
         address _tokenAddress,
         address payable airManAddress,
-        bool hasFixedAmount
+        bool hasFixedAmount,
+        bool _isPrivate
     )
     {
         require(ownerAddress != address(0));
@@ -279,6 +285,7 @@ contract AirdropCampaign {
         airMan = airManAddress;
         ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
         fixedAmount = hasFixedAmount;
+        isPrivate = _isPrivate;
     }
 
     receive() external payable{
@@ -316,6 +323,11 @@ contract AirdropCampaign {
         emit UserParticipationToggled(PartAddr, participantInfo[PartAddr].isBanned);
     }
 
+    function toggleIsPrivate() external onlyOwner {
+        require(block.timestamp <= claimableSince, "Can't modify state, time is up");
+        isPrivate = !isPrivate;
+    }
+
     function manageFunds() external onlyOwner {
         require(block.timestamp >= ownerTokenWithdrawDate,
             'Tokens not claimable yet');
@@ -330,6 +342,7 @@ contract AirdropCampaign {
 
     // User functions
     function addToPayableWhitelist() public payable { // This is payable but if fee is 0 then its free
+        require (!isPrivate, 'Airdrop is private');
         require(msg.value == whitelistFee,
             'Exact fee not sent');
         _addToWhitelist(msg.sender);
