@@ -276,6 +276,7 @@ contract AirdropCampaign {
         require(_tokenAddress != address(0));
 
         claimableSince = endDate;
+        ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
         whitelistFee = _whitelistFee;
         tokenAmount = amountForCampaign;
         maxParticipantAmount = _maxParticipantAmount;
@@ -283,7 +284,6 @@ contract AirdropCampaign {
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
         airMan = airManAddress;
-        ownerTokenWithdrawDate = claimableSince + (claimableSince - block.timestamp);
         fixedAmount = hasFixedAmount;
         isPrivate = _isPrivate;
     }
