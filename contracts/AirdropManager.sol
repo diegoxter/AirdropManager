@@ -11,6 +11,7 @@ contract AdminPanel is AccessControl {
     AirManInstance[] public deployedManagersById;
 
     struct AirManInstance {
+        string[] CID;
         uint256 id;
         address instanceOwner;
         address instanceAddress;
@@ -39,11 +40,12 @@ contract AdminPanel is AccessControl {
     }
 
     function deployFreeAirdropManagerInstance(
+        string[] memory cid,
         address payable _newOwner,
         address _instanceToken,
         uint256 _initialBalance
         ) external onlyRole(ADMIN_ROLE) {
-        _deployNewAirMan(_instanceToken, _initialBalance, _newOwner);
+        _deployNewAirMan(cid, _instanceToken, _initialBalance, _newOwner);
     }
 
     // This fee could either be 0 or any other value
@@ -65,21 +67,22 @@ contract AdminPanel is AccessControl {
         return instances;
     }
 
-    function newAirdropManagerInstance(address _instanceToken, uint256 _initialBalance) public payable {
+    function newAirdropManagerInstance(string[] memory cid, address _instanceToken, uint256 _initialBalance) public payable {
         require(msg.value == feeInWei,  'Exact fee not sent');
 
-        _deployNewAirMan(_instanceToken, _initialBalance, payable(msg.sender));
+        _deployNewAirMan(cid, _instanceToken, _initialBalance, payable(msg.sender));
     }
 
-    function _deployNewAirMan(address _instanceToken, uint256 _initialBalance, address payable _newOwner) internal {
+    function _deployNewAirMan(string[] memory cid, address _instanceToken, uint256 _initialBalance, address payable _newOwner) internal {
         require(ERC20(_instanceToken).balanceOf(_newOwner) >= _initialBalance);
         require(ERC20(_instanceToken).allowance(_newOwner, address(this)) >= _initialBalance,
             'No allowance to send to the new AirMan'
         );
-        AirdropManager newInstance = new AirdropManager(_newOwner, _instanceToken);
+        AirdropManager newInstance = new AirdropManager(cid, _newOwner, _instanceToken);
         require(ERC20(_instanceToken).transferFrom(_newOwner, address(newInstance), _initialBalance));
 
         AirManInstance memory instance;
+        instance.CID = cid;
         instance.id = instanceIDs;
         instance.instanceOwner = _newOwner;
         instance.instanceAddress = address(newInstance);
@@ -100,10 +103,12 @@ contract AdminPanel is AccessControl {
 
         emit EtherWithdrawed(amountToSend);
     }
+
 }
 
 
 contract AirdropManager {
+    string[] public CID;
     address payable public owner;
     address public tokenAddress;
     uint256 internal lastCampaignID;
@@ -131,10 +136,11 @@ contract AirdropManager {
         _;
     }
 
-    constructor(address payable ownerAddress, address _tokenAddress) {
+    constructor(string[] memory cid, address payable ownerAddress, address _tokenAddress) {
         require(ownerAddress != address(0));
         require(_tokenAddress != address(0));
 
+        CID = cid;
         owner = ownerAddress;
         tokenAddress = _tokenAddress;
         lastCampaignID = 0;
@@ -221,6 +227,11 @@ contract AirdropManager {
             revert('Only accepts 0 or 1');
         }
     }
+
+    function editCID(string[] memory newCID) external onlyOwner {
+        CID = newCID;
+    }
+
 }
 
 // to do refactor onlyOwner
@@ -397,6 +408,7 @@ contract AirdropCampaign {
 
         emit NewParticipant(PartAddr);
     }
+
 }
 
 interface ERC20 {
