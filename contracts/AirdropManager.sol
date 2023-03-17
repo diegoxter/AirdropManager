@@ -244,7 +244,7 @@ contract AirdropCampaign {
     uint256 public whitelistFee;
     uint256 public amountForEachUser;
     uint256 public ownerTokenWithdrawDate; // The date the owner can withdraw the tokens
-    address payable owner;
+    address payable public owner;
     address payable public airMan;
     address public tokenAddress;
     bool public fixedAmount;
